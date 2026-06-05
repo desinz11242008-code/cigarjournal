@@ -12,8 +12,8 @@ const TabBar = () => {
   const location = useLocation();
 
   return (
-    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-lg items-center justify-around py-2">
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="mx-auto flex max-w-lg items-center justify-around pt-3 pb-1">
         {tabs.map((tab) => {
           const active = location.pathname.startsWith(tab.to);
           const Icon = tab.icon;
@@ -22,7 +22,7 @@ const TabBar = () => {
             <NavLink
               key={tab.to}
               to={tab.to}
-              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1.5 transition-colors"
+              className="flex min-w-0 flex-1 flex-col items-center gap-1 transition-colors"
             >
               <Icon
                 size={22}
