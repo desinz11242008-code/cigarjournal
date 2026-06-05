@@ -87,12 +87,12 @@ const Forum = () => {
   };
 
   return (
-    <div className="relative min-h-full pb-24">
+    <div className="relative min-h-full">
       <div className="ember-glow pointer-events-none absolute inset-x-0 top-0 h-64" />
 
       <div className="relative mx-auto w-full max-w-lg px-4">
-        {/* Header */}
-        <header className="safe-top flex items-end justify-between pb-3 pt-8">
+        {/* Header - Configured to anchor safely away from the iPhone Notch / Dynamic Island */}
+        <header className="flex items-end justify-between pb-3 pt-[calc(2rem+env(safe-area-inset-top,16px))]">
           <div>
             <h1 className="text-[28px] font-bold leading-tight tracking-tight text-foreground">
               Forum
@@ -155,7 +155,7 @@ const Forum = () => {
         ) : sortedPosts.length === 0 ? (
           <EmptyForum onCreatePost={handleCreatePost} isSignedIn={!!user} />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 pb-28">
             {sortedPosts.map((post, i) => (
               <PostCard
                 key={post.id}
@@ -168,10 +168,10 @@ const Forum = () => {
         )}
       </div>
 
-      {/* FAB — create post */}
+      {/* FAB — Fixed alignment layout restored to standard clearance height */}
       <button
         onClick={handleCreatePost}
-        className="safe-bottom fixed bottom-24 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_6px_24px_-4px_hsl(28_64%_56%/0.7)] transition-transform active:scale-95"
+        className="fixed right-5 bottom-20 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_6px_24px_-4px_hsl(28_64%_56%/0.7)] transition-transform active:scale-95"
         aria-label="Create post"
       >
         <Plus size={24} strokeWidth={2.8} />
