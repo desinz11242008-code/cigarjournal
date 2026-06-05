@@ -6,6 +6,8 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Force relative paths for compiled assets so subdirectories don't break routing
+  base: "./", 
   server: {
     host: "::",
     port: 8080,
@@ -22,9 +24,9 @@ export default defineConfig(({ mode }) => ({
         name: "Cigar Journal",
         short_name: "Cigar Journal",
         description: "Track, rate, and remember every cigar you smoke.",
-        id: "/",
-        start_url: "/",
-        scope: "/",
+        id: "./",
+        start_url: "./",
+        scope: "./",
         display: "standalone",
         orientation: "portrait",
         background_color: "#1A1A1D",
@@ -32,19 +34,19 @@ export default defineConfig(({ mode }) => ({
         categories: ["lifestyle", "food"],
         icons: [
           {
-            src: "/pwa-192.png",
+            src: "pwa-192.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any",
           },
           {
-            src: "/pwa-512.png",
+            src: "pwa-512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any",
           },
           {
-            src: "/pwa-maskable-512.png",
+            src: "pwa-maskable-512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
@@ -52,7 +54,8 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        navigateFallback: "/index.html",
+        // Changed fallback to look at relative directory structure 
+        navigateFallback: "index.html",
         globPatterns: ["**/*.{js,css,html,png,svg,woff,woff2}"],
         cleanupOutdatedCaches: true,
       },
@@ -66,7 +69,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  // Expose both VITE_* (Vite default) and EXPO_PUBLIC_* (Rork's cross-platform
-  // public-env convention, written by tools like getOrCreateAuthConfig).
   envPrefix: ["VITE_", "EXPO_PUBLIC_"],
 }));
