@@ -1,110 +1,135 @@
 import createContextHook from "@nkzw/create-context-hook";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { CigarEntry, emptyThird } from "@/types/cigar";
 
-import { CigarEntry, MOUTHFEEL_OPTIONS, emptyThird } from "@/types/cigar";
-
-const STORAGE_KEY = "cigarlog.entries.v2";
-
-/** Migrate old entries: mouthfeel number→array, add pairedWith. */
-const migrateEntry = (raw: Record<string, unknown>): CigarEntry => {
-  const migrateThird = (t: Record<string, unknown> | undefined) => {
-    const third = (t ?? emptyThird()) as Record<string, unknown>;
-    // Convert old numeric mouthfeel to array
-    if (typeof third.mouthfeel === "number") {
-      const num = third.mouthfeel as number;
-      const count = Math.min(num, MOUTHFEEL_OPTIONS.length);
-      third.mouthfeel = count > 0 ? MOUTHFEEL_OPTIONS.slice(0, count) : [];
-    }
-    return {
-      notes: String(third.notes ?? ""),
-      mouthfeel: (Array.isArray(third.mouthfeel) ? third.mouthfeel : []) as string[],
-      complexity: Number(third.complexity ?? 0),
-      flavour: Number(third.flavour ?? 0),
-      harmony: Number(third.harmony ?? 0),
-    };
-  };
-
-  // Migrate old photoData string to photos array
-  const photos: string[] = [];
-  if (typeof raw.photoData === "string" && raw.photoData.length > 0) {
-    photos.push(raw.photoData);
-  }
-  if (Array.isArray(raw.photos)) {
-    photos.push(...(raw.photos.filter((p): p is string => typeof p === "string" && p.length > 0)));
-  }
-  // Deduplicate
-  const uniquePhotos = [...new Set(photos)];
-
+// ─── DATA MAPPING LAYER ──────────────────────────────────────────────────
+// Maps your custom Supabase database columns back to your frontend TypeScript structure
+const mapDbToEntry = (row: any): CigarEntry => {
   return {
-    id: String(raw.id ?? crypto.randomUUID()),
-    timestamp: String(raw.timestamp ?? new Date().toISOString()),
-    cigarName: String(raw.cigarName ?? ""),
-    brand: String(raw.brand ?? ""),
-    vitola: String(raw.vitola ?? ""),
-    length: String(raw.length ?? ""),
-    ringGauge: String(raw.ringGauge ?? ""),
-    wrapper: String(raw.wrapper ?? ""),
-    binder: String(raw.binder ?? ""),
-    filler: String(raw.filler ?? ""),
-    strength: Number(raw.strength ?? 0),
-    rating: Number(raw.rating ?? 0),
-    location: String(raw.location ?? ""),
-    durationMinutes: Number(raw.durationMinutes ?? 0),
-    pairedWith: String(raw.pairedWith ?? ""),
-    humidity: String(raw.humidity ?? ""),
-    photos: uniquePhotos,
-    firstThird: migrateThird(raw.firstThird as Record<string, unknown> | undefined),
-    secondThird: migrateThird(raw.secondThird as Record<string, unknown> | undefined),
-    finalThird: migrateThird(raw.finalThird as Record<string, unknown> | undefined),
+    id: row.id,
+    timestamp: row.timestamp || row.created_at || new Date().toISOString(),
+    cigarName: row.name || row.cigar_name || "", // Handles column names flexibly
+    brand: row.brand || "",
+    vitola: row.vitola || "",
+    length: row.length || "",
+    ringGauge: row.ring_gauge || row.ringGauge || "",
+    wrapper: row.wrapper || "",
+    binder: row.binder || "",
+    filler: row.filler || "",
+    strength: Number(row.strength ?? 0),
+    rating: Number(row.rating ?? 0),
+    location: row.location || "",
+    durationMinutes: Number(row.duration_minutes ?? row.durationMinutes ?? 0),
+    pairedWith: row.paired_with ?? row.pairedWith ?? "",
+    humidity: row.humidity || "",
+    photos: Array.isArray(row.photos) ? row.photos : [],
+    firstThird: row.first_third || row.firstThird || emptyThird(),
+    secondThird: row.second_third || row.secondThird || emptyThird(),
+    finalThird: row.final_third || row.finalThird || emptyThird(),
   };
 };
 
-const loadEntries = (): CigarEntry[] => {
-  try {
-    // Try new key first, then fall back to old key for migration
-    let raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      const oldRaw = localStorage.getItem("cigarlog.entries.v1");
-      if (oldRaw) {
-        const oldEntries = JSON.parse(oldRaw) as Record<string, unknown>[];
-        const migrated = oldEntries.map(migrateEntry);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-        localStorage.removeItem("cigarlog.entries.v1");
-        return migrated;
-      }
-      return [];
-    }
-    const parsed = JSON.parse(raw) as Record<string, unknown>[];
-    return parsed.map(migrateEntry);
-  } catch (err) {
-    console.warn("Failed to load cigar entries", err);
-    return [];
-  }
+// Maps your frontend data structure into clean database rows for Supabase
+const mapEntryToDb = (entry: CigarEntry, userId: string) => {
+  return {
+    id: entry.id,
+    user_id: userId,
+    name: entry.cigarName, // Maps frontend 'cigarName' to the 'name' column in your DB
+    brand: entry.brand,
+    vitola: entry.vitola,
+    length: entry.length,
+    ring_gauge: entry.ringGauge,
+    wrapper: entry.wrapper,
+    binder: entry.binder,
+    filler: entry.filler,
+    strength: entry.strength,
+    rating: entry.rating,
+    location: entry.location,
+    duration_minutes: entry.durationMinutes,
+    paired_with: entry.pairedWith,
+    humidity: entry.humidity,
+    photos: entry.photos,
+    first_third: entry.firstThird,
+    second_third: entry.secondThird,
+    final_third: entry.finalThird,
+    timestamp: entry.timestamp,
+  };
 };
 
+// ─── STATE PROVIDER ──────────────────────────────────────────────────────
 export const [CigarProvider, useCigars] = createContextHook(() => {
-  const [entries, setEntries] = useState<CigarEntry[]>(() => loadEntries());
+  const [entries, setEntries] = useState<CigarEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
+  // Load entries from Supabase on application initialization
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    } catch (err) {
-      console.warn("Failed to persist cigar entries", err);
-    }
-  }, [entries]);
+    const fetchEntries = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setLoading(false);
+          return;
+        }
 
-  const upsert = useCallback((entry: CigarEntry) => {
-    setEntries((prev) => {
-      const exists = prev.some((e) => e.id === entry.id);
-      if (exists) {
-        return prev.map((e) => (e.id === entry.id ? entry : e));
+        const { data, error } = await supabase
+          .from("cigars")
+          .select("*")
+          .order("timestamp", { ascending: false });
+
+        if (error) throw error;
+
+        if (data) {
+          setEntries(data.map(mapDbToEntry));
+        }
+      } catch (err) {
+        console.error("Failed to load cloud cigar entries:", err);
+      } finally {
+        setLoading(false);
       }
-      return [entry, ...prev];
-    });
+    };
+
+    fetchEntries();
   }, []);
 
-  const remove = useCallback((id: string) => {
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+  // Save or update an entry in the cloud database
+  const upsert = useCallback(async (entry: CigarEntry) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 1. Update frontend UI immediately so the app feels snappy (Optimistic Update)
+      setEntries((prev) => {
+        const exists = prev.some((e) => e.id === entry.id);
+        if (exists) {
+          return prev.map((e) => (e.id === entry.id ? entry : e));
+        }
+        return [entry, ...prev];
+      });
+
+      // 2. Sync changes directly to your Supabase cloud backend
+      const dbRow = mapEntryToDb(entry, user.id);
+      const { error } = await supabase.from("cigars").upsert(dbRow);
+      
+      if (error) throw error;
+    } catch (err) {
+      console.error("Failed to save cigar entry to database:", err);
+    }
+  }, []);
+
+  // Remove an entry from the cloud database
+  const remove = useCallback(async (id: string) => {
+    try {
+      // 1. Remove from local UI state immediately
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+
+      // 2. Remove row from Supabase
+      const { error } = await supabase.from("cigars").delete().eq("id", id);
+      
+      if (error) throw error;
+    } catch (err) {
+      console.error("Failed to delete cigar entry from database:", err);
+    }
   }, []);
 
   const getById = useCallback(
@@ -122,7 +147,7 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
   );
 
   return useMemo(
-    () => ({ entries: sorted, upsert, remove, getById }),
-    [sorted, upsert, remove, getById],
+    () => ({ entries: sorted, upsert, remove, getById, loading }),
+    [sorted, upsert, remove, getById, loading],
   );
 });
