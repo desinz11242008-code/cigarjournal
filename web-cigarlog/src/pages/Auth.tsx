@@ -19,7 +19,7 @@ export default function Auth() {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        alert("Check your email for the confirmation link!");
+        alert("Account created successfully! You can now log in.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -35,14 +35,21 @@ export default function Auth() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#1A1A1D] px-4 text-white font-sans">
       <div className="w-full max-w-md space-y-6 rounded-xl bg-[#242428] p-8 shadow-xl border border-zinc-800">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-amber-500">Cigar Journal</h2>
-          <p className="mt-2 text-sm text-zinc-400">
+        
+        {/* Dynamic Header Section */}
+        <div className="text-center space-y-1">
+          <h2 className="text-3xl font-extrabold tracking-tight text-amber-500">
+            Cigar Journal
+          </h2>
+          <div className="text-xl font-semibold text-zinc-200 tracking-wide">
+            {isSignUp ? "Sign Up" : "Sign In"}
+          </div>
+          <p className="pt-1 text-xs text-zinc-400">
             {isSignUp ? "Create an account to start your logs" : "Sign in to access your humidor"}
           </p>
         </div>
 
-        <form className="mt-8 space-y-4" onSubmit={handleAuth}>
+        <form className="mt-6 space-y-4" onSubmit={handleAuth}>
           {errorMsg && (
             <div className="rounded bg-red-500/10 p-3 text-sm text-red-400 border border-red-500/20">
               {errorMsg}
