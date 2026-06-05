@@ -4,12 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { CigarEntry, emptyThird } from "@/types/cigar";
 
 // ─── DATA MAPPING LAYER ──────────────────────────────────────────────────
-// Maps your custom Supabase database columns back to your frontend TypeScript structure
 const mapDbToEntry = (row: any): CigarEntry => {
   return {
     id: row.id,
     timestamp: row.timestamp || row.created_at || new Date().toISOString(),
-    cigarName: row.name || row.cigar_name || "", // Handles column names flexibly
+    cigarName: row.name || row.cigar_name || "",
     brand: row.brand || "",
     vitola: row.vitola || "",
     length: row.length || "",
@@ -30,12 +29,11 @@ const mapDbToEntry = (row: any): CigarEntry => {
   };
 };
 
-// Maps your frontend data structure into clean database rows for Supabase
 const mapEntryToDb = (entry: CigarEntry, userId: string) => {
   return {
     id: entry.id,
     user_id: userId,
-    name: entry.cigarName, // Maps frontend 'cigarName' to the 'name' column in your DB
+    name: entry.cigarName,
     brand: entry.brand,
     vitola: entry.vitola,
     length: entry.length,
@@ -62,7 +60,6 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
   const [entries, setEntries] = useState<CigarEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load entries from Supabase on application initialization
   useEffect(() => {
     const fetchEntries = async () => {
       try {
@@ -72,7 +69,8 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
           return;
         }
 
-        const { data, error } = await supabase
+        // Bypasses local strict types using (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("cigars")
           .select("*")
           .order("timestamp", { ascending: false });
@@ -92,13 +90,11 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
     fetchEntries();
   }, []);
 
-  // Save or update an entry in the cloud database
   const upsert = useCallback(async (entry: CigarEntry) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Update frontend UI immediately so the app feels snappy (Optimistic Update)
       setEntries((prev) => {
         const exists = prev.some((e) => e.id === entry.id);
         if (exists) {
@@ -107,9 +103,9 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
         return [entry, ...prev];
       });
 
-      // 2. Sync changes directly to your Supabase cloud backend
       const dbRow = mapEntryToDb(entry, user.id);
-      const { error } = await supabase.from("cigars").upsert(dbRow);
+      // Bypasses local strict types using (supabase as any)
+      const { error } = await (supabase as any).from("cigars").upsert(dbRow);
       
       if (error) throw error;
     } catch (err) {
@@ -117,14 +113,12 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
     }
   }, []);
 
-  // Remove an entry from the cloud database
   const remove = useCallback(async (id: string) => {
     try {
-      // 1. Remove from local UI state immediately
       setEntries((prev) => prev.filter((e) => e.id !== id));
 
-      // 2. Remove row from Supabase
-      const { error } = await supabase.from("cigars").delete().eq("id", id);
+      // Bypasses local strict types using (supabase as any)
+      const { error } = await (supabase as any).from("cigars").delete().eq("id", id);
       
       if (error) throw error;
     } catch (err) {

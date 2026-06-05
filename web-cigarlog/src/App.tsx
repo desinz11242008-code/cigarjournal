@@ -19,7 +19,7 @@ import Journal from "./pages/Journal";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 import Social from "./pages/Social";
-import Auth from "./pages/Auth"; // Imports your login/signup screen
+import Auth from "@/pages/Auth"; // FIXED: Changed relative path to absolute alias mapping
 
 const queryClient = new QueryClient();
 
