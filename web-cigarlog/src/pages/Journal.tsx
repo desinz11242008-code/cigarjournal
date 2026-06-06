@@ -255,74 +255,35 @@ function EmptyState({
   // 3. Logged In but No Entries View Variant
   return (
     <div className="animate-scale-in mt-16 flex flex-col items-center text-center">
-      <div className="ember-glow mb-5 flex h-24 w-24 items-center justify-center rounded-full">
-        <svg
-          width="72"
-          height="48"
-          viewBox="0 0 96 64"
-          fill="none"
-        >
-          <defs>
-            <linearGradient id="maduroBody" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#4a2c17" />
-              <stop offset="25%" stopColor="#3b2210" />
-              <stop offset="50%" stopColor="#2e1a0c" />
-              <stop offset="75%" stopColor="#3b2210" />
-              <stop offset="100%" stopColor="#4a2c17" />
-            </linearGradient>
-            <linearGradient id="maduroSheen" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#fff" stopOpacity="0.08" />
-              <stop offset="50%" stopColor="#fff" stopOpacity="0.0" />
-              <stop offset="100%" stopColor="#000" stopOpacity="0.15" />
-            </linearGradient>
-            <linearGradient id="maduroCap" x1="1" y1="0" x2="0" y2="0">
-              <stop offset="0%" stopColor="#3b2210" />
-              <stop offset="40%" stopColor="#2e1a0c" />
-              <stop offset="100%" stopColor="#1f1107" />
-            </linearGradient>
-          </defs>
+      
+      {/* IMPROVED: Replaced flat squished SVG with a premium responsive HTML-styled cigar component */}
+      <div className="relative mb-6 flex h-20 w-full items-center justify-center scale-110">
+        {/* Soft warmth back-shadow glow */}
+        <div className="absolute h-8 w-28 rounded-full bg-accent/10 blur-xl animate-pulse" />
+        
+        {/* Cigar Body */}
+        <div className="relative flex h-4 w-36 items-center overflow-hidden rounded-r-sm bg-gradient-to-b from-[#59361a] via-[#402511] to-[#2c180a] shadow-[0_4px_12px_rgba(0,0,0,0.5)] border-y border-black/30">
+          
+          {/* Left-side rounded head shadow */}
+          <div className="absolute left-0 h-full w-3 rounded-l bg-gradient-to-r from-black/50 to-transparent" />
+          
+          {/* Tobacco wrapper leaves texturing */}
+          <div className="absolute inset-0 opacity-20 bg-[linear-gradient(65deg,transparent_45%,#000_50%,transparent_55%)] bg-[length:12px_100%]" />
 
-          <rect
-            x="8"
-            y="24"
-            width="80"
-            height="16"
-            rx="8"
-            fill="url(#maduroBody)"
-          />
-          <rect
-            x="8"
-            y="24"
-            width="80"
-            height="16"
-            rx="8"
-            fill="url(#maduroSheen)"
-          />
+          {/* Golden Embossed Cigar Band */}
+          <div className="absolute left-8 flex h-full w-5 items-center justify-center bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 border-x border-yellow-200/30 shadow-md">
+            {/* Center crimson logo stamp */}
+            <div className="h-2.5 w-2.5 rounded-full bg-gradient-to-tr from-red-700 to-red-500 border border-yellow-100/50" />
+          </div>
 
-          <ellipse cx="8" cy="32" rx="4" ry="8" fill="url(#maduroCap)" />
-          <ellipse cx="7" cy="29" rx="2" ry="4" fill="#5a3820" opacity="0.5" />
+          {/* Ash Foot */}
+          <div className="absolute right-0 h-full w-6 bg-gradient-to-r from-transparent via-[#6b6b6b] to-[#a6a6a6]" />
+        </div>
 
-          <ellipse cx="88" cy="32" rx="3" ry="8" fill="#2e1a0c" />
-          <ellipse cx="88" cy="32" rx="2.5" ry="6.5" fill="#3b2515" />
-          <ellipse cx="88" cy="32" rx="1.5" ry="4" fill="#4d3020" opacity="0.6" />
-
-          <rect x="30" y="26" width="18" height="12" rx="1" fill="#c9a84c" />
-          <rect x="31" y="27" width="16" height="10" rx="1" fill="#8b1a1a" />
-          <rect x="32" y="28.5" width="14" height="7" rx="0.5" fill="#a67c28" opacity="0.5" />
-          <style dangerouslySetInnerHTML={{__html: `line { stroke: #e8d48b; stroke-width: 0.7px; opacity: 0.8; }` }} />
-          <line x1="34" y1="29" x2="44" y2="29" />
-          <line x1="34" y1="35" x2="44" y2="35" />
-
-          <line x1="13" y1="27" x2="27" y2="27" stroke="#1f1107" strokeWidth="0.5" opacity="0.4" />
-          <line x1="13" y1="30" x2="27" y2="30" stroke="#1f1107" strokeWidth="0.5" opacity="0.3" />
-          <line x1="13" y1="33" x2="27" y2="33" stroke="#1f1107" strokeWidth="0.5" opacity="0.4" />
-          <line x1="13" y1="36" x2="27" y2="36" stroke="#1f1107" strokeWidth="0.5" opacity="0.3" />
-          <line x1="50" y1="27" x2="83" y2="27" stroke="#1f1107" strokeWidth="0.5" opacity="0.4" />
-          <line x1="50" y1="30" x2="83" y2="30" stroke="#1f1107" strokeWidth="0.5" opacity="0.3" />
-          <line x1="50" y1="33" x2="83" y2="33" stroke="#1f1107" strokeWidth="0.5" opacity="0.4" />
-          <line x1="50" y1="36" x2="83" y2="36" stroke="#1f1107" strokeWidth="0.5" opacity="0.3" />
-        </svg>
+        {/* Lit Cherry Core Glow */}
+        <div className="absolute right-[calc(50%-73px)] h-3 w-0.5 rounded-r bg-gradient-to-r from-orange-500 to-amber-400 shadow-[0_0_8px_#ea580c] animate-pulse" />
       </div>
+
       <h2 className="text-lg font-semibold text-foreground">No cigars smoked yet</h2>
       <p className="mt-1 max-w-[260px] text-sm text-muted-foreground">
         Light one up and log your first tasting. Track the flavours of every third.
