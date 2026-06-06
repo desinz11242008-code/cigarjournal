@@ -82,8 +82,8 @@ const AddEditEntry = () => {
     });
 
     if (existing) {
-      // { replace: true } swaps the current Edit path in history with the Detail path, breaking the back loop
-      navigate(`/entry/${draft.id}`, { replace: true });
+      // Steps back into the original detail page view, keeping your history perfectly clean
+      navigate(-1);
     } else {
       navigate("/");
     }
