@@ -60,34 +60,49 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
   const [entries, setEntries] = useState<CigarEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Real-time listener for Auth changes (Login / Logout / Switch User)
   useEffect(() => {
-    const fetchEntries = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+    let authSubscription: any = null;
+
+    const setupAuthListener = async () => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) {
+          // A user is logged in -> Load their specific data
+          setLoading(true);
+          try {
+            const { data, error } = await (supabase as any)
+              .from("cigars")
+              .select("*")
+              .eq("user_id", session.user.id) // Hard filter for the active user account
+              .order("timestamp", { ascending: false });
+
+            if (error) throw error;
+            if (data) {
+              setEntries(data.map(mapDbToEntry));
+            }
+          } catch (err) {
+            console.error("Failed to load cloud cigar entries:", err);
+          } finally {
+            setLoading(false);
+          }
+        } else {
+          // USER LOGGED OUT -> WIPE EVERYTHING IMMEDIATELY
+          setEntries([]);
           setLoading(false);
-          return;
         }
+      });
 
-        // Bypasses local strict types using (supabase as any)
-        const { data, error } = await (supabase as any)
-          .from("cigars")
-          .select("*")
-          .order("timestamp", { ascending: false });
-
-        if (error) throw error;
-
-        if (data) {
-          setEntries(data.map(mapDbToEntry));
-        }
-      } catch (err) {
-        console.error("Failed to load cloud cigar entries:", err);
-      } finally {
-        setLoading(false);
-      }
+      authSubscription = subscription;
     };
 
-    fetchEntries();
+    setupAuthListener();
+
+    // Clean up listener when component unmounts
+    return () => {
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
+    };
   }, []);
 
   const upsert = useCallback(async (entry: CigarEntry) => {
@@ -104,7 +119,6 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
       });
 
       const dbRow = mapEntryToDb(entry, user.id);
-      // Bypasses local strict types using (supabase as any)
       const { error } = await (supabase as any).from("cigars").upsert(dbRow);
       
       if (error) throw error;
@@ -115,10 +129,16 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
 
   const remove = useCallback(async (id: string) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       setEntries((prev) => prev.filter((e) => e.id !== id));
 
-      // Bypasses local strict types using (supabase as any)
-      const { error } = await (supabase as any).from("cigars").delete().eq("id", id);
+      const { error } = await (supabase as any)
+        .from("cigars")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id); // Guarded delete target
       
       if (error) throw error;
     } catch (err) {
