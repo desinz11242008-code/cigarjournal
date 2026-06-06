@@ -13,8 +13,8 @@ import { toast } from "sonner";
 
 const CATEGORIES = [
   { value: "discussion", label: "Discussion" },
-  { value: "recommendation", label: "Cigar Suggestion" },
-  { value: "question", label: "Q&A" },
+  { value: "recommendation", label: "Cigar Suggestion" }, // Maps directly to "recommendation" DB category filter
+  { value: "question", label: "Q&A" },                   // Maps directly to "question" DB category filter
   { value: "review", label: "Review" },
   { value: "pairing", label: "Pairing" },
 ] as const;
@@ -61,7 +61,8 @@ const CreatePost = () => {
 
   const createPost = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("forum_posts").insert({
+      // Reverted to "forum_posts" with type assertion to resolve the TS 'never' block
+      const { error } = await supabase.from("forum_posts" as any).insert({
         title: title.trim(),
         body: body.trim(),
         category,
@@ -104,6 +105,7 @@ const CreatePost = () => {
           {CATEGORIES.map((cat) => (
             <button
               key={cat.value}
+              type="button"
               onClick={() => setCategory(cat.value)}
               className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all active:scale-95 ${
                 category === cat.value
