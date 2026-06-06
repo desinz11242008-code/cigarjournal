@@ -5,6 +5,8 @@ import {
   MessageSquare,
   Plus,
   RefreshCw,
+  Wine,
+  Star,
 } from "lucide-react";
 import { useContext, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -21,16 +23,43 @@ type ForumVote = Tables<"forum_votes">;
 
 type PostWithProfile = ForumPost & { profiles: Profile | null };
 
-type TabMode = "qa" | "suggestion";
+// Expanded to match all 5 category keys used in your database/state
+type TabMode = "discussion" | "suggestion" | "qa" | "review" | "pairing";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  question: "Q&A",
-  recommendation: "Cigar Suggestion", // Updated display label
+const CATEGORY_LABELS: Record<TabMode, string> = {
+  discussion: "Discussion",
+  suggestion: "Cigar Suggestion",
+  qa: "Q&A",
+  review: "Review",
+  pairing: "Pairing",
+};
+
+// Subtitle texts that change dynamically based on the active category tab
+const CATEGORY_DESCRIPTIONS: Record<TabMode, string> = {
+  discussion: "General cigar chat and community news",
+  suggestion: "Share and browse cigar recommendations",
+  qa: "Ask and answer cigar questions",
+  review: "Read and post detailed cigar reviews",
+  pairing: "Discover ideal drink and food pairings",
+};
+
+// Maps the UI tab back to the literal string value stored in your Supabase 'category' column
+const CATEGORY_DB_FILTER: Record<TabMode, string> = {
+  discussion: "discussion",
+  suggestion: "recommendation", // Mapping suggestion UI tab to 'recommendation' DB value
+  qa: "question",             // Mapping qa UI tab to 'question' DB value
+  review: "review",
+  pairing: "pairing",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  question: "bg-green-500/10 text-green-400 border-green-500/20",
+  discussion: "bg-blue-500/10 text-blue-400 border-blue-500/20",
   recommendation: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  suggestion: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  question: "bg-green-500/10 text-green-400 border-green-500/20",
+  qa: "bg-green-500/10 text-green-400 border-green-500/20",
+  review: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  pairing: "bg-pink-500/10 text-pink-400 border-pink-500/20",
 };
 
 function timeAgo(dateStr: string | null): string {
@@ -55,9 +84,9 @@ const Forum = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const openSignIn = useContext(SignInContext);
-  const [tabMode, setTabMode] = useState<TabMode>("qa");
+  const [tabMode, setTabMode] = useState<TabMode>("discussion");
 
-  const categoryFilter = tabMode === "qa" ? "question" : "recommendation";
+  const categoryFilter = CATEGORY_DB_FILTER[tabMode];
 
   const { data: posts, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["forum-posts", tabMode],
@@ -91,14 +120,14 @@ const Forum = () => {
       <div className="ember-glow pointer-events-none absolute inset-x-0 top-0 h-64" />
 
       <div className="relative mx-auto w-full max-w-lg px-4">
-        {/* Header - Configured to anchor safely away from the iPhone Notch / Dynamic Island */}
+        {/* Header */}
         <header className="flex items-end justify-between pb-3 pt-[calc(2rem+env(safe-area-inset-top,16px))]">
           <div>
             <h1 className="text-[28px] font-bold leading-tight tracking-tight text-foreground">
               Forum
             </h1>
-            <p className="text-sm text-muted-foreground">
-              {tabMode === "qa" ? "Ask and answer cigar questions" : "Share and browse cigar recommendations"}
+            <p className="text-sm text-muted-foreground transition-all duration-200">
+              {CATEGORY_DESCRIPTIONS[tabMode]}
             </p>
           </div>
           <button
@@ -111,18 +140,21 @@ const Forum = () => {
           </button>
         </header>
 
-        {/* Tab Switcher */}
-        <div className="mb-4 flex gap-1 rounded-xl bg-card p-1">
+        {/* 5-Category Tab Switcher - Responsive with invisible horizontal scrollbar */}
+        <div className="no-scrollbar mb-4 flex gap-1 overflow-x-auto rounded-xl bg-card p-1">
           {(
             [
+              { key: "discussion" as const, icon: MessageSquare, label: "Discussion" },
+              { key: "suggestion" as const, icon: Lightbulb, label: "Cigar Suggestion" },
               { key: "qa" as const, icon: HelpCircle, label: "Q&A" },
-              { key: "suggestion" as const, icon: Lightbulb, label: "Cigar Suggestion" }, // Updated tab display label
+              { key: "review" as const, icon: Star, label: "Review" },
+              { key: "pairing" as const, icon: Wine, label: "Pairing" },
             ]
           ).map(({ key, icon: Icon, label }) => (
             <button
               key={key}
               onClick={() => setTabMode(key)}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all ${
+              className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                 tabMode === key
                   ? "bg-accent text-accent-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -153,7 +185,7 @@ const Forum = () => {
             ))}
           </div>
         ) : sortedPosts.length === 0 ? (
-          <EmptyForum onCreatePost={handleCreatePost} isSignedIn={!!user} />
+          <EmptyForum onCreatePost={handleCreatePost} isSignedIn={!!user} categoryLabel={CATEGORY_LABELS[tabMode]} />
         ) : (
           <div className="space-y-3 pb-28">
             {sortedPosts.map((post, i) => (
@@ -168,7 +200,7 @@ const Forum = () => {
         )}
       </div>
 
-      {/* FAB — Matched perfectly to Journal tab positioning on both mobile and desktop PC */}
+      {/* FAB */}
       <button
         onClick={handleCreatePost}
         className="fixed right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom,24px))] md:bottom-[72px] z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_6px_24px_-4px_hsl(28_64%_56%/0.7)] transition-transform active:scale-95"
@@ -193,6 +225,11 @@ function PostCard({
   const bodyPreview =
     post.body.length > 150 ? post.body.slice(0, 150) + "…" : post.body;
 
+  // Normalizes DB text strings back to user-friendly UI badges
+  const displayLabel = CATEGORY_LABELS[post.category as TabMode] || 
+                       (post.category === "recommendation" ? "Cigar Suggestion" : 
+                        post.category === "question" ? "Q&A" : post.category);
+
   return (
     <article
       onClick={onClick}
@@ -202,9 +239,9 @@ function PostCard({
       {/* Category + Time */}
       <div className="mb-2 flex items-center gap-2">
         <span
-          className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${CATEGORY_COLORS[post.category] ?? "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}
+          className={`rounded-md border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider ${CATEGORY_COLORS[post.category] ?? "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}
         >
-          {CATEGORY_LABELS[post.category] ?? post.category}
+          {displayLabel}
         </span>
         <span className="text-xs text-muted-foreground">
           {timeAgo(post.created_at)}
@@ -223,7 +260,7 @@ function PostCard({
         </p>
       )}
 
-      {/* Footer: author, votes, comments */}
+      {/* Footer */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {post.profiles?.avatar_url ? (
@@ -261,9 +298,11 @@ function PostCard({
 function EmptyForum({
   onCreatePost,
   isSignedIn,
+  categoryLabel,
 }: {
   onCreatePost: () => void;
   isSignedIn: boolean;
+  categoryLabel: string;
 }) {
   return (
     <div className="animate-scale-in mt-16 flex flex-col items-center text-center">
@@ -273,8 +312,8 @@ function EmptyForum({
       <h2 className="text-lg font-semibold text-foreground">No posts yet</h2>
       <p className="mt-1 max-w-[260px] text-sm text-muted-foreground">
         {isSignedIn
-          ? "Be the first to ask a question or share a cigar suggestion."
-          : "Sign in to ask questions or share cigar suggestions."}
+          ? `Be the first to create a post in ${categoryLabel}.`
+          : `Sign in to create a post in ${categoryLabel}.`}
       </p>
       <button
         onClick={onCreatePost}
