@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
 
 export interface User {
   id: string;
@@ -49,7 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -109,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin, // Returns user straight back to localhost:4173
+          redirectTo: window.location.origin,
         },
       });
 
@@ -125,15 +123,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     try {
       await supabase.auth.signOut();
-      queryClient.clear(); // Wipes out all cached server data from the browser memory instantly
       setUser(null);
     } catch (err) {
       console.error("Native sign out failed:", err);
     }
   }
 
-  // Keep a dummy handler here so components expecting this method don't crash.
-  // Supabase automatically handles code exchange internally via redirect url.
   async function exchangeCode(code: string) {
     return Promise.resolve();
   }

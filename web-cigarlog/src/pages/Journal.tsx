@@ -1,6 +1,7 @@
 import { Plus, Search, X, LogOut, User as UserIcon } from "lucide-react";
 import { useContext, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { EntryCard } from "@/components/EntryCard";
 import { SignInContext } from "@/components/TabLayout";
@@ -14,6 +15,7 @@ const Journal = () => {
   const openSignIn = useContext(SignInContext);
   const { user, isLoading, signOut } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
+  const queryClient = useQueryClient();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -92,8 +94,9 @@ const Journal = () => {
                         </p>
                       </div>
                       <button
-                        onClick={() => {
-                          signOut();
+                        onClick={async () => {
+                          await signOut();
+                          queryClient.clear();
                           setShowDropdown(false);
                         }}
                         className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-card hover:text-destructive"
