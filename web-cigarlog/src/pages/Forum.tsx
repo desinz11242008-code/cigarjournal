@@ -168,10 +168,10 @@ const Forum = () => {
         )}
       </div>
 
-      {/* FAB — Fixed alignment layout restored to standard clearance height */}
+      {/* FAB — Matched perfectly to Journal tab positioning on both mobile and desktop PC */}
       <button
         onClick={handleCreatePost}
-        className="fixed right-5 bottom-20 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_6px_24px_-4px_hsl(28_64%_56%/0.7)] transition-transform active:scale-95"
+        className="fixed right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom,24px))] md:bottom-[72px] z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_6px_24px_-4px_hsl(28_64%_56%/0.7)] transition-transform active:scale-95"
         aria-label="Create post"
       >
         <Plus size={24} strokeWidth={2.8} />
