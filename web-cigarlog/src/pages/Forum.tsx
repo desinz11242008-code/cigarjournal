@@ -25,7 +25,7 @@ type TabMode = "qa" | "suggestion";
 
 const CATEGORY_LABELS: Record<string, string> = {
   question: "Q&A",
-  recommendation: "Suggestion",
+  recommendation: "Cigar Suggestion", // Updated display label
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -116,7 +116,7 @@ const Forum = () => {
           {(
             [
               { key: "qa" as const, icon: HelpCircle, label: "Q&A" },
-              { key: "suggestion" as const, icon: Lightbulb, label: "Suggestion" },
+              { key: "suggestion" as const, icon: Lightbulb, label: "Cigar Suggestion" }, // Updated tab display label
             ]
           ).map(({ key, icon: Icon, label }) => (
             <button

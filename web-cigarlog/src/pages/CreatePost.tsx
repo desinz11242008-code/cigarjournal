@@ -12,8 +12,11 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 const CATEGORIES = [
+  { value: "discussion", label: "Discussion" },
+  { value: "recommendation", label: "Cigar Suggestion" },
   { value: "question", label: "Q&A" },
-  { value: "recommendation", label: "Suggestion" },
+  { value: "review", label: "Review" },
+  { value: "pairing", label: "Pairing" },
 ] as const;
 
 const CreatePost = () => {

@@ -35,7 +35,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const CATEGORIES = [
   { value: "discussion", label: "Discussion" },
-  { value: "recommendation", label: "Recommendation" },
+  { value: "recommendation", label: "Cigar Suggestion" },
   { value: "question", label: "Question" },
   { value: "review", label: "Review" },
   { value: "pairing", label: "Pairing" },
@@ -151,7 +151,6 @@ const ForumPostPage = () => {
             .eq("id", existingVote.id);
 
           const table = targetType === "post" ? "forum_posts" : "forum_comments";
-          const delta = existingVote.vote === 1 ? -1 : 1;
           await supabase.rpc("adjust_votes", {
             target_table: table,
             target_id: targetId,
@@ -269,7 +268,8 @@ const ForumPostPage = () => {
 
   // Build threaded comment tree
   const threadedComments = useMemo(() => {
-    if (!comments) return [];
+    // FIXED: Now safely fallback to matching empty object structure instead of array
+    if (!comments) return { topLevel: [], replies: () => [] };
     const topLevel = comments.filter((c) => !c.parent_id);
     const replies = (parentId: string): CommentWithProfile[] =>
       comments.filter((c) => c.parent_id === parentId);
@@ -589,7 +589,7 @@ function CommentThread({
               alt=""
               className="h-6 w-6 rounded-full object-cover"
               referrerPolicy="no-referrer"
-            />
+                />
           ) : (
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
               {(comment.profiles?.name ?? "?")[0]?.toUpperCase()}
