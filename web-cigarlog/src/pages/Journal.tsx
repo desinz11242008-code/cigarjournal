@@ -119,8 +119,9 @@ const Journal = () => {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search your cigars..."
-            className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-10 text-[15px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-accent/50"
+            placeholder={user ? "Search your cigars..." : "Sign in to look through entries..."}
+            disabled={!user}
+            className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-10 text-[15px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-accent/50 disabled:opacity-50"
           />
           {query && (
             <button
@@ -133,7 +134,7 @@ const Journal = () => {
         </div>
 
         {/* Stats */}
-        {entries.length > 0 && (
+        {user && entries.length > 0 && (
           <div className="mb-6 grid grid-cols-2 gap-3">
             <StatTile label="Cigars Smoked" value={String(entries.length)} />
             <StatTile
@@ -144,8 +145,15 @@ const Journal = () => {
           </div>
         )}
 
-        {/* List */}
-        {filtered.length === 0 ? (
+        {/* Dynamic List Rendering based on Auth state */}
+        {!user && !isLoading ? (
+          <EmptyState
+            onAdd={() => navigate("/add")}
+            isSearch={false}
+            isLoggedOut={true}
+            onSignIn={() => openSignIn?.()}
+          />
+        ) : filtered.length === 0 ? (
           <EmptyState
             onAdd={() => navigate("/add")}
             isSearch={query.length > 0}
@@ -159,14 +167,16 @@ const Journal = () => {
         )}
       </div>
 
-      {/* FAB — Fixed positioning with dynamic math to clear your new TabBar layout perfectly */}
-      <button
-        onClick={() => navigate("/add")}
-        className="fixed right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom,16px))] z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_6px_24px_-4px_hsl(28_64%_56%/0.7)] transition-transform active:scale-95"
-        aria-label="Log a cigar"
-      >
-        <Plus size={24} strokeWidth={2.8} />
-      </button>
+      {/* FAB — Only show button if user is authenticated */}
+      {user && (
+        <button
+          onClick={() => navigate("/add")}
+          className="fixed right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom,16px))] z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_6px_24px_-4px_hsl(28_64%_56%/0.7)] transition-transform active:scale-95"
+          aria-label="Log a cigar"
+        >
+          <Plus size={24} strokeWidth={2.8} />
+        </button>
+      )}
     </div>
   );
 };
@@ -195,10 +205,36 @@ function StatTile({
 function EmptyState({
   onAdd,
   isSearch,
+  isLoggedOut,
+  onSignIn,
 }: {
   onAdd: () => void;
   isSearch: boolean;
+  isLoggedOut?: boolean;
+  onSignIn?: () => void;
 }) {
+  // 1. Signed Out View Variant
+  if (isLoggedOut) {
+    return (
+      <div className="animate-scale-in mt-16 flex flex-col items-center text-center">
+        <div className="ember-glow mb-5 flex h-24 w-24 items-center justify-center rounded-full">
+          <UserIcon size={32} className="text-muted-foreground" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground">Your Personal Journal</h2>
+        <p className="mt-1 max-w-[280px] text-sm text-muted-foreground">
+          Sign in with your Google account to securely log your cigars, track your stats, and keep your history strictly private.
+        </p>
+        <button
+          onClick={onSignIn}
+          className="mt-6 rounded-full bg-accent px-6 py-3 font-semibold text-accent-foreground transition-transform active:scale-95"
+        >
+          Sign in with Google
+        </button>
+      </div>
+    );
+  }
+
+  // 2. Active Search View Variant
   if (isSearch) {
     return (
       <div className="animate-scale-in mt-16 flex flex-col items-center text-center">
@@ -213,6 +249,7 @@ function EmptyState({
     );
   }
 
+  // 3. Logged In but No Entries View Variant
   return (
     <div className="animate-scale-in mt-16 flex flex-col items-center text-center">
       <div className="ember-glow mb-5 flex h-24 w-24 items-center justify-center rounded-full">
@@ -222,7 +259,6 @@ function EmptyState({
           viewBox="0 0 96 64"
           fill="none"
         >
-          {/* Toro Maduro body — dark oily wrapper */}
           <defs>
             <linearGradient id="maduroBody" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#4a2c17" />
@@ -243,7 +279,6 @@ function EmptyState({
             </linearGradient>
           </defs>
 
-          {/* Main body — long toro shape (8:1 ratio) */}
           <rect
             x="8"
             y="24"
@@ -252,7 +287,6 @@ function EmptyState({
             rx="8"
             fill="url(#maduroBody)"
           />
-          {/* Sheen overlay */}
           <rect
             x="8"
             y="24"
@@ -262,25 +296,20 @@ function EmptyState({
             fill="url(#maduroSheen)"
           />
 
-          {/* Rounded head (cap) — left side */}
           <ellipse cx="8" cy="32" rx="4" ry="8" fill="url(#maduroCap)" />
-          {/* Cap highlight */}
           <ellipse cx="7" cy="29" rx="2" ry="4" fill="#5a3820" opacity="0.5" />
 
-          {/* Foot — right side, slightly lighter where cut */}
           <ellipse cx="88" cy="32" rx="3" ry="8" fill="#2e1a0c" />
           <ellipse cx="88" cy="32" rx="2.5" ry="6.5" fill="#3b2515" />
           <ellipse cx="88" cy="32" rx="1.5" ry="4" fill="#4d3020" opacity="0.6" />
 
-          {/* Cigar band — gold + deep red */}
           <rect x="30" y="26" width="18" height="12" rx="1" fill="#c9a84c" />
           <rect x="31" y="27" width="16" height="10" rx="1" fill="#8b1a1a" />
           <rect x="32" y="28.5" width="14" height="7" rx="0.5" fill="#a67c28" opacity="0.5" />
-          {/* Band ornament */}
-          <line x1="34" y1="29" x2="44" y2="29" stroke="#e8d48b" strokeWidth="0.7" opacity="0.8" />
-          <line x1="34" y1="35" x2="44" y2="35" stroke="#e8d48b" strokeWidth="0.7" opacity="0.8" />
+          <style dangerouslySetInnerHTML={{__html: `line { stroke: #e8d48b; stroke-width: 0.7px; opacity: 0.8; }` }} />
+          <line x1="34" y1="29" x2="44" y2="29" />
+          <line x1="34" y1="35" x2="44" y2="35" />
 
-          {/* Wrapper lines for texture */}
           <line x1="13" y1="27" x2="27" y2="27" stroke="#1f1107" strokeWidth="0.5" opacity="0.4" />
           <line x1="13" y1="30" x2="27" y2="30" stroke="#1f1107" strokeWidth="0.5" opacity="0.3" />
           <line x1="13" y1="33" x2="27" y2="33" stroke="#1f1107" strokeWidth="0.5" opacity="0.4" />
@@ -293,8 +322,7 @@ function EmptyState({
       </div>
       <h2 className="text-lg font-semibold text-foreground">No cigars smoked yet</h2>
       <p className="mt-1 max-w-[260px] text-sm text-muted-foreground">
-        Light one up and log your first tasting. Track the flavours of every
-        third.
+        Light one up and log your first tasting. Track the flavours of every third.
       </p>
       <button
         onClick={onAdd}
