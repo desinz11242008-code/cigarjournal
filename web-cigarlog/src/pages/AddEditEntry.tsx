@@ -11,6 +11,7 @@ import {
   TextArea,
   TextField,
 } from "@/components/form/Fields";
+import { useAuth } from "@/hooks/useAuth";
 import { useCigars } from "@/store/useCigars";
 import {
   CigarEntry,
@@ -23,6 +24,7 @@ const AddEditEntry = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getById, upsert } = useCigars();
+  const { user } = useAuth();
 
   const existing = id ? getById(id) : undefined;
   const [draft, setDraft] = useState<CigarEntry>(
@@ -44,9 +46,6 @@ const AddEditEntry = () => {
   ) => setDraft((d) => ({ ...d, [key]: { ...d[key], [field]: val } }));
 
   const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Copy into a stable array BEFORE resetting the input — resetting
-    // the value empties the live FileList, which would otherwise break
-    // the async FileReader callbacks below.
     const fileList = Array.from(e.target.files ?? []);
     if (fileRef.current) fileRef.current.value = "";
     if (fileList.length === 0) return;
@@ -72,8 +71,16 @@ const AddEditEntry = () => {
     setPhotos((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const save = () => {
-    upsert({ ...draft, photos });
+  const save = async () => {
+    if (!user) return;
+
+    // Save with user identifier to split profiles correctly
+    await upsert({ 
+      ...draft, 
+      photos,
+      user_id: user.id 
+    });
+
     if (existing) {
       navigate(`/entry/${draft.id}`);
     } else {
@@ -105,7 +112,7 @@ const AddEditEntry = () => {
     }
   };
 
-  const canSave = draft.cigarName.trim().length > 0;
+  const canSave = draft.cigarName.trim().length > 0 && !!user;
 
   return (
     <div className="relative min-h-full pb-32">
@@ -371,9 +378,7 @@ function ThirdEditor({
         label="Notes"
         value={data.notes}
         onChange={(v) => onChange("notes", v)}
-        placeholder="Flavour:
-Aroma:
-Burn:"
+        placeholder="Flavour:\nAroma:\nBurn:"
       />
 
       <div className="space-y-4">

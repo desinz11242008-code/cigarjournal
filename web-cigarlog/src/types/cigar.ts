@@ -25,6 +25,7 @@ export type ThirdNotes = {
 export type CigarEntry = {
   id: string;
   timestamp: string; // ISO date string
+  user_id?: string;   // 👈 This allows us to link entries to specific user accounts
 
   cigarName: string;
   brand: string;

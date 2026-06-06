@@ -8,6 +8,7 @@ const mapDbToEntry = (row: any): CigarEntry => {
   return {
     id: row.id,
     timestamp: row.timestamp || row.created_at || new Date().toISOString(),
+    user_id: row.user_id, // 👈 Added this line to retain user ownership in local state
     cigarName: row.name || row.cigar_name || "",
     brand: row.brand || "",
     vitola: row.vitola || "",
