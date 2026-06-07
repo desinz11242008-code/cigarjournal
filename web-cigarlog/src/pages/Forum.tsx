@@ -221,7 +221,7 @@ function PostCard({
       try {
         const { data } = await supabase
           .from("profiles")
-          .select("name, avatar_url")
+          .select("name,avatar_url") // FIXED: Removed space inside select statement string to fix URL parameter encoding
           .eq("id", post.user_id)
           .maybeSingle();
         if (data) setProfile(data);
