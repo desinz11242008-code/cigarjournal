@@ -33,6 +33,7 @@ const CreatePost = () => {
         <div className="ember-glow pointer-events-none absolute inset-x-0 top-0 h-64" />
         <div className="safe-top relative mx-auto max-w-lg px-4 pt-8">
           <button
+            type="button"
             onClick={() => navigate(-1)}
             className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
@@ -48,6 +49,7 @@ const CreatePost = () => {
               You need to sign in to create a forum post.
             </p>
             <button
+              type="button"
               onClick={() => openSignIn?.()}
               className="mt-6 rounded-full bg-accent px-6 py-3 font-semibold text-accent-foreground transition-transform active:scale-95"
             >
@@ -89,6 +91,7 @@ const CreatePost = () => {
         {/* Nav */}
         <div className="mb-6 flex items-center gap-4">
           <button
+            type="button"
             onClick={() => navigate(-1)}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:text-foreground active:scale-95"
           >
@@ -153,6 +156,7 @@ const CreatePost = () => {
 
         {/* Submit */}
         <button
+          type="button"
           onClick={() => createPost.mutate()}
           disabled={!canSubmit || createPost.isPending}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-accent py-3.5 font-semibold text-accent-foreground transition-all active:scale-[0.98] disabled:opacity-40"
