@@ -8,20 +8,16 @@ import {
   Wine,
   Star,
 } from "lucide-react";
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { SignInContext } from "@/components/TabLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 type ForumPost = Tables<"forum_posts">;
-type Profile = Tables<"profiles">;
-
-// Clean type safety matching your exact Supabase schema structure
-type PostWithProfile = ForumPost & { profiles: Profile | null };
 
 type TabMode = "discussion" | "suggestion" | "qa" | "review" | "pairing";
 
@@ -79,31 +75,25 @@ function timeAgo(dateStr: string | null): string {
 const Forum = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const openSignIn = useContext(SignInContext);
   const [tabMode, setTabMode] = useState<TabMode>("discussion");
 
   const categoryFilter = CATEGORY_DB_FILTER[tabMode];
 
   const { data: posts, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ["forum-posts", tabMode],
+    queryKey: ["forum-posts-clean", tabMode],
     queryFn: async () => {
-      // Type-safe query layout that matches your structural database relationships definition
+      // Fetch posts directly without doing a join to guarantee a 200 OK success response
       const { data, error } = await supabase
         .from("forum_posts")
-        .select("*, profiles!forum_posts_user_id_fkey(id, name, avatar_url)")
+        .select("*")
         .eq("category", categoryFilter)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data as unknown as PostWithProfile[]) ?? [];
+      return (data as ForumPost[]) ?? [];
     },
   });
-
-  const sortedPosts = useMemo(() => {
-    if (!posts) return [];
-    return [...posts];
-  }, [posts]);
 
   const handleCreatePost = () => {
     if (!user) {
@@ -182,11 +172,11 @@ const Forum = () => {
               </div>
             ))}
           </div>
-        ) : sortedPosts.length === 0 ? (
+        ) : !posts || posts.length === 0 ? (
           <EmptyForum onCreatePost={handleCreatePost} isSignedIn={!!user} categoryLabel={CATEGORY_LABELS[tabMode]} />
         ) : (
           <div className="space-y-3 pb-28">
-            {sortedPosts.map((post, i) => (
+            {posts.map((post, i) => (
               <PostCard
                 key={post.id}
                 post={post}
@@ -215,13 +205,32 @@ function PostCard({
   index,
   onClick,
 }: {
-  post: PostWithProfile;
+  post: ForumPost;
   index: number;
   onClick: () => void;
 }) {
   const score = post.upvotes - post.downvotes;
   const bodyPreview =
     post.body && post.body.length > 150 ? post.body.slice(0, 150) + "…" : post.body;
+
+  // Local state to hold profile info loaded independently
+  const [profile, setProfile] = useState<{ name: string | null; avatar_url: string | null } | null>(null);
+
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("name, avatar_url")
+          .eq("id", post.user_id)
+          .maybeSingle();
+        if (data) setProfile(data);
+      } catch (err) {
+        console.error("Error loading profile item:", err);
+      }
+    }
+    loadProfile();
+  }, [post.user_id]);
 
   const displayLabel = CATEGORY_LABELS[post.category as TabMode] || 
                        (post.category === "recommendation" ? "Cigar Suggestion" : 
@@ -256,20 +265,20 @@ function PostCard({
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {post.profiles?.avatar_url ? (
+          {profile?.avatar_url ? (
             <img
-              src={post.profiles.avatar_url}
+              src={profile.avatar_url}
               alt=""
               className="h-5 w-5 rounded-full object-cover"
               referrerPolicy="no-referrer"
             />
           ) : (
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
-              {(post.profiles?.name ?? "A")[0]?.toUpperCase()}
+              {(profile?.name ?? "A")[0]?.toUpperCase()}
             </div>
           )}
           <span className="text-xs text-muted-foreground">
-            {post.profiles?.name ?? "Anonymous"}
+            {profile?.name ?? "Anonymous"}
           </span>
         </div>
 
