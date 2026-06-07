@@ -8,7 +8,7 @@ import {
   Wine,
   Star,
 } from "lucide-react";
-import { useContext, useMemo, useState, useEffect } from "react";
+import { useContext, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { SignInContext } from "@/components/TabLayout";
@@ -18,6 +18,11 @@ import type { Tables } from "@/integrations/supabase/types";
 import { useQuery } from "@tanstack/react-query";
 
 type ForumPost = Tables<"forum_posts">;
+type Profile = Tables<"profiles">;
+
+type PostWithProfile = ForumPost & {
+  profiles: { name: string | null; avatar_url: string | null } | null;
+};
 
 type TabMode = "discussion" | "suggestion" | "qa" | "review" | "pairing";
 
@@ -80,18 +85,38 @@ const Forum = () => {
 
   const categoryFilter = CATEGORY_DB_FILTER[tabMode];
 
-  const { data: posts, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ["forum-posts-clean", tabMode],
+  // Fetch both datasets in a single multi-query operation to bypass URL parameter crashes
+  const { data: combinedData, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ["forum-posts-combined", tabMode],
     queryFn: async () => {
-      // Fetch posts directly without doing a join to guarantee a 200 OK success response
-      const { data, error } = await supabase
+      // 1. Get posts
+      const { data: postsData, error: postsError } = await supabase
         .from("forum_posts")
         .select("*")
         .eq("category", categoryFilter)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return (data as ForumPost[]) ?? [];
+      if (postsError) throw postsError;
+      if (!postsData || postsData.length === 0) return [];
+
+      // 2. Extract unique user IDs from those posts
+      const userIds = Array.from(new Set(postsData.map((p) => p.user_id)));
+
+      // 3. Fetch matching profiles in ONE clean, comma-less request
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id,name,avatar_url")
+        .in("id", userIds);
+
+      if (profilesError) throw profilesError;
+
+      // 4. Map profiles to posts on the client side
+      const profileMap = new Map(profilesData?.map((p) => [p.id, p]) ?? []);
+      
+      return postsData.map((post) => ({
+        ...post,
+        profiles: profileMap.get(post.user_id) || null,
+      })) as PostWithProfile[];
     },
   });
 
@@ -172,11 +197,11 @@ const Forum = () => {
               </div>
             ))}
           </div>
-        ) : !posts || posts.length === 0 ? (
+        ) : !combinedData || combinedData.length === 0 ? (
           <EmptyForum onCreatePost={handleCreatePost} isSignedIn={!!user} categoryLabel={CATEGORY_LABELS[tabMode]} />
         ) : (
           <div className="space-y-3 pb-28">
-            {posts.map((post, i) => (
+            {combinedData.map((post, i) => (
               <PostCard
                 key={post.id}
                 post={post}
@@ -205,32 +230,13 @@ function PostCard({
   index,
   onClick,
 }: {
-  post: ForumPost;
+  post: PostWithProfile;
   index: number;
   onClick: () => void;
 }) {
   const score = post.upvotes - post.downvotes;
   const bodyPreview =
     post.body && post.body.length > 150 ? post.body.slice(0, 150) + "…" : post.body;
-
-  // Local state to hold profile info loaded independently
-  const [profile, setProfile] = useState<{ name: string | null; avatar_url: string | null } | null>(null);
-
-  useEffect(() => {
-    async function loadProfile() {
-      try {
-        const { data } = await supabase
-          .from("profiles")
-          .select("name,avatar_url") // FIXED: Removed space inside select statement string to fix URL parameter encoding
-          .eq("id", post.user_id)
-          .maybeSingle();
-        if (data) setProfile(data);
-      } catch (err) {
-        console.error("Error loading profile item:", err);
-      }
-    }
-    loadProfile();
-  }, [post.user_id]);
 
   const displayLabel = CATEGORY_LABELS[post.category as TabMode] || 
                        (post.category === "recommendation" ? "Cigar Suggestion" : 
@@ -265,20 +271,20 @@ function PostCard({
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {profile?.avatar_url ? (
+          {post.profiles?.avatar_url ? (
             <img
-              src={profile.avatar_url}
+              src={post.profiles.avatar_url}
               alt=""
               className="h-5 w-5 rounded-full object-cover"
               referrerPolicy="no-referrer"
             />
           ) : (
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
-              {(profile?.name ?? "A")[0]?.toUpperCase()}
+              {(post.profiles?.name ?? "A")[0]?.toUpperCase()}
             </div>
           )}
           <span className="text-xs text-muted-foreground">
-            {profile?.name ?? "Anonymous"}
+            {post.profiles?.name ?? "Anonymous"}
           </span>
         </div>
 
