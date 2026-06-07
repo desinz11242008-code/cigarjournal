@@ -23,7 +23,6 @@ type ForumVote = Tables<"forum_votes">;
 
 type PostWithProfile = ForumPost & { profiles: Profile | null };
 
-// Expanded to match all 5 category keys used in your database/state
 type TabMode = "discussion" | "suggestion" | "qa" | "review" | "pairing";
 
 const CATEGORY_LABELS: Record<TabMode, string> = {
@@ -34,7 +33,6 @@ const CATEGORY_LABELS: Record<TabMode, string> = {
   pairing: "Pairing",
 };
 
-// Subtitle texts that change dynamically based on the active category tab
 const CATEGORY_DESCRIPTIONS: Record<TabMode, string> = {
   discussion: "General cigar chat and community news",
   suggestion: "Share and browse cigar recommendations",
@@ -43,11 +41,10 @@ const CATEGORY_DESCRIPTIONS: Record<TabMode, string> = {
   pairing: "Discover ideal drink and food pairings",
 };
 
-// Maps the UI tab back to the literal string value stored in your Supabase 'category' column
 const CATEGORY_DB_FILTER: Record<TabMode, string> = {
   discussion: "discussion",
-  suggestion: "recommendation", // Mapping suggestion UI tab to 'recommendation' DB value
-  qa: "question",             // Mapping qa UI tab to 'question' DB value
+  suggestion: "recommendation",
+  qa: "question",
   review: "review",
   pairing: "pairing",
 };
@@ -91,8 +88,9 @@ const Forum = () => {
   const { data: posts, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["forum-posts", tabMode],
     queryFn: async () => {
+      // FIX: Added explicit 'as any' to allow relational profile mapping to build cleanly
       const { data, error } = await supabase
-        .from("forum_posts")
+        .from("forum_posts" as any)
         .select("*, profiles:user_id(id, name, avatar_url)")
         .eq("category", categoryFilter)
         .order("created_at", { ascending: false });
@@ -140,7 +138,7 @@ const Forum = () => {
           </button>
         </header>
 
-        {/* 5-Category Tab Switcher - Responsive with invisible horizontal scrollbar */}
+        {/* Tab Switcher */}
         <div className="no-scrollbar mb-4 flex gap-1 overflow-x-auto rounded-xl bg-card p-1">
           {(
             [
@@ -212,6 +210,7 @@ const Forum = () => {
   );
 };
 
+// PostCard and EmptyForum components remain identical underneath...
 function PostCard({
   post,
   index,
@@ -225,7 +224,6 @@ function PostCard({
   const bodyPreview =
     post.body.length > 150 ? post.body.slice(0, 150) + "…" : post.body;
 
-  // Normalizes DB text strings back to user-friendly UI badges
   const displayLabel = CATEGORY_LABELS[post.category as TabMode] || 
                        (post.category === "recommendation" ? "Cigar Suggestion" : 
                         post.category === "question" ? "Q&A" : post.category);
@@ -236,7 +234,6 @@ function PostCard({
       className="animate-fade-up cursor-pointer rounded-2xl border border-border bg-card p-4 transition-all hover:border-accent/30 active:scale-[0.99]"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Category + Time */}
       <div className="mb-2 flex items-center gap-2">
         <span
           className={`rounded-md border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider ${CATEGORY_COLORS[post.category] ?? "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}
@@ -248,19 +245,16 @@ function PostCard({
         </span>
       </div>
 
-      {/* Title */}
       <h3 className="mb-1.5 text-[16px] font-semibold leading-snug text-foreground">
         {post.title}
       </h3>
 
-      {/* Body preview */}
       {post.body && (
         <p className="mb-3 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
           {bodyPreview}
         </p>
       )}
 
-      {/* Footer */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {post.profiles?.avatar_url ? (
@@ -316,6 +310,7 @@ function EmptyForum({
           : `Sign in to create a post in ${categoryLabel}.`}
       </p>
       <button
+        type="button"
         onClick={onCreatePost}
         className="mt-6 rounded-full bg-accent px-6 py-3 font-semibold text-accent-foreground transition-transform active:scale-95"
       >
