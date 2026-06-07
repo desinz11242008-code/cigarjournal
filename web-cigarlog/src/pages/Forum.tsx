@@ -19,8 +19,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type ForumPost = Tables<"forum_posts">;
 type Profile = Tables<"profiles">;
-type ForumVote = Tables<"forum_votes">;
 
+// Clean type safety matching your exact Supabase schema structure
 type PostWithProfile = ForumPost & { profiles: Profile | null };
 
 type TabMode = "discussion" | "suggestion" | "qa" | "review" | "pairing";
@@ -88,10 +88,10 @@ const Forum = () => {
   const { data: posts, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["forum-posts", tabMode],
     queryFn: async () => {
-      // FIX: Added explicit 'as any' to allow relational profile mapping to build cleanly
+      // Type-safe query layout that matches your structural database relationships definition
       const { data, error } = await supabase
-        .from("forum_posts" as any)
-        .select("*, profiles:user_id(id, name, avatar_url)")
+        .from("forum_posts")
+        .select("*, profiles!forum_posts_user_id_fkey(id, name, avatar_url)")
         .eq("category", categoryFilter)
         .order("created_at", { ascending: false });
 
@@ -210,7 +210,6 @@ const Forum = () => {
   );
 };
 
-// PostCard and EmptyForum components remain identical underneath...
 function PostCard({
   post,
   index,
@@ -222,7 +221,7 @@ function PostCard({
 }) {
   const score = post.upvotes - post.downvotes;
   const bodyPreview =
-    post.body.length > 150 ? post.body.slice(0, 150) + "…" : post.body;
+    post.body && post.body.length > 150 ? post.body.slice(0, 150) + "…" : post.body;
 
   const displayLabel = CATEGORY_LABELS[post.category as TabMode] || 
                        (post.category === "recommendation" ? "Cigar Suggestion" : 
@@ -266,7 +265,7 @@ function PostCard({
             />
           ) : (
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
-              {(post.profiles?.name ?? "?")[0]?.toUpperCase()}
+              {(post.profiles?.name ?? "A")[0]?.toUpperCase()}
             </div>
           )}
           <span className="text-xs text-muted-foreground">

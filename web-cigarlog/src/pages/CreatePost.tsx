@@ -63,8 +63,8 @@ const CreatePost = () => {
 
   const createPost = useMutation({
     mutationFn: async () => {
-      // Reverted to "forum_posts" with type assertion to resolve the TS 'never' block
-      const { error } = await supabase.from("forum_posts" as any).insert({
+      // Cleaned up: Removed 'as any' type assertion since the auto-generated types now perfectly match
+      const { error } = await supabase.from("forum_posts").insert({
         title: title.trim(),
         body: body.trim(),
         category,
