@@ -21,6 +21,9 @@ import Settings from "./pages/Settings";
 import Social from "./pages/Social";
 import Auth from "@/pages/Auth"; // FIXED: Changed relative path to absolute alias mapping
 
+// Import our new OnboardingGuard component
+import { OnboardingGuard } from "./components/OnboardingGuard";
+
 const queryClient = new QueryClient();
 
 // A security wrapper that intercepts users and redirects them to login if they aren't signed in
@@ -66,30 +69,33 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            {/* Publicly accessible authentication routes */}
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
+          {/* Wrap all routes inside the OnboardingGuard to protect the entire app flow */}
+          <OnboardingGuard>
+            <Routes>
+              {/* Publicly accessible authentication routes */}
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
 
-            {/* Protected routes - wrapped securely inside ProtectedRoute */}
-            <Route path="/" element={<Navigate to="/journal" replace />} />
-            
-            <Route element={<ProtectedRoute><TabLayout /></ProtectedRoute>}>
-              <Route path="/journal" element={<Journal />} />
-              <Route path="/social" element={<Social />} />
-              <Route path="/forum" element={<Forum />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-            
-            <Route path="/add" element={<ProtectedRoute><AddEditEntry /></ProtectedRoute>} />
-            <Route path="/edit/:id" element={<ProtectedRoute><AddEditEntry /></ProtectedRoute>} />
-            <Route path="/entry/:id" element={<ProtectedRoute><EntryDetail /></ProtectedRoute>} />
-            <Route path="/forum/new" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
-            <Route path="/forum/:id" element={<ProtectedRoute><ForumPostPage /></ProtectedRoute>} />
-            
-            {/* Fallback 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              {/* Protected routes - wrapped securely inside ProtectedRoute */}
+              <Route path="/" element={<Navigate to="/journal" replace />} />
+              
+              <Route element={<ProtectedRoute><TabLayout /></ProtectedRoute>}>
+                <Route path="/journal" element={<Journal />} />
+                <Route path="/social" element={<Social />} />
+                <Route path="/forum" element={<Forum />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+              
+              <Route path="/add" element={<ProtectedRoute><AddEditEntry /></ProtectedRoute>} />
+              <Route path="/edit/:id" element={<ProtectedRoute><AddEditEntry /></ProtectedRoute>} />
+              <Route path="/entry/:id" element={<ProtectedRoute><EntryDetail /></ProtectedRoute>} />
+              <Route path="/forum/new" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+              <Route path="/forum/:id" element={<ProtectedRoute><ForumPostPage /></ProtectedRoute>} />
+              
+              {/* Fallback 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </OnboardingGuard>
         </BrowserRouter>
       </TooltipProvider>
     </CigarProvider>
