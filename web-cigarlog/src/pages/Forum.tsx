@@ -9,7 +9,7 @@ import {
   Star,
   Trash2,
   AlertTriangle,
-  Globe, // Added Globe icon for "All Posts"
+  Globe,
 } from "lucide-react";
 import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -26,7 +26,6 @@ type Profile = Tables<"profiles">;
 
 type PostWithProfile = ForumPost & { profiles: Profile | null };
 
-// Added "all" to the TabMode type
 type TabMode = "all" | "discussion" | "suggestion" | "qa" | "review" | "pairing";
 
 const CATEGORY_LABELS: Record<TabMode, string> = {
@@ -88,7 +87,6 @@ const Forum = () => {
   const { user } = useAuth();
   const openSignIn = useContext(SignInContext);
   
-  // Set the default tab to "all" so they see everything right away
   const [tabMode, setTabMode] = useState<TabMode>("all");
 
   const categoryFilter = CATEGORY_DB_FILTER[tabMode];
@@ -96,13 +94,11 @@ const Forum = () => {
   const { data: combinedData, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["forum-posts-combined", tabMode],
     queryFn: async () => {
-      // 1. Build the query dynamically
       let query = supabase
         .from("forum_posts")
         .select("*")
         .order("created_at", { ascending: false });
 
-      // If a specific category is selected, apply the filter. If "all", skip filtering.
       if (tabMode !== "all") {
         query = query.eq("category", categoryFilter);
       }
@@ -112,14 +108,12 @@ const Forum = () => {
       if (postsError) throw postsError;
       if (!postsData || postsData.length === 0) return [];
 
-      // 2. Extract unique user IDs
       const userIds = Array.from(new Set(postsData.map((p) => p.user_id))).filter(Boolean);
 
       if (userIds.length === 0) {
         return postsData.map(post => ({ ...post, profiles: null })) as PostWithProfile[];
       }
 
-      // 3. Fetch matching profiles
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("*") 
@@ -130,7 +124,6 @@ const Forum = () => {
         return postsData.map((post) => ({ ...post, profiles: null })) as PostWithProfile[];
       }
 
-      // 4. Map profiles to posts
       const profileMap = new Map(profilesData?.map((p) => [p.id, p]) ?? []);
       
       return postsData.map((post) => ({
@@ -173,11 +166,11 @@ const Forum = () => {
           </button>
         </header>
 
-        {/* Tab Switcher */}
-        <div className="no-scrollbar mb-4 flex gap-1 overflow-x-auto rounded-xl bg-card p-1">
+        {/* Tab Switcher - Responsive scrolling on mobile, wrapping on desktop */}
+        <div className="no-scrollbar mb-4 flex gap-1 overflow-x-auto md:flex-wrap md:overflow-visible rounded-xl bg-card p-1">
           {(
             [
-              { key: "all" as const, icon: Globe, label: "All Posts" }, // Added All Posts block
+              { key: "all" as const, icon: Globe, label: "All Posts" },
               { key: "discussion" as const, icon: MessageSquare, label: "Discussion" },
               { key: "suggestion" as const, icon: Lightbulb, label: "Cigar Suggestion" },
               { key: "qa" as const, icon: HelpCircle, label: "Q&A" },
