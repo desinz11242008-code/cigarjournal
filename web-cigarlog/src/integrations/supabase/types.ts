@@ -185,6 +185,122 @@ export type Database = {
         }
         Relationships: []
       }
+      social_posts: {
+        Row: {
+          id: string
+          user_id: string
+          cigar_id: string | null
+          image_url: string | null
+          caption: string | null
+          likes_count: number
+          comments_count: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          cigar_id?: string | null
+          image_url?: string | null
+          caption?: string | null
+          likes_count?: number
+          comments_count?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          cigar_id?: string | null
+          image_url?: string | null
+          caption?: string | null
+          likes_count?: number
+          comments_count?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      social_likes: {
+        Row: {
+          id: string
+          post_id: string
+          user_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          user_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          user_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      social_comments: {
+        Row: {
+          id: string
+          post_id: string
+          user_id: string
+          body: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          user_id: string
+          body: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          user_id?: string
+          body?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
