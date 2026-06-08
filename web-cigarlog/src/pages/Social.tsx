@@ -8,7 +8,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { StrengthBolts } from "@/components/Ratings";
 
-// Define the shape of our nested database response
 type SocialPost = {
   id: string;
   user_id: string;
@@ -17,7 +16,7 @@ type SocialPost = {
   caption: string | null;
   created_at: string;
   profiles: { name: string | null; avatar_url: string | null } | null;
-  cigars: any | null; // The linked journal entry
+  cigars: any | null;
   social_likes: { user_id: string }[];
   social_comments: { count: number }[];
 };
@@ -43,7 +42,6 @@ const Social = () => {
   const { data: posts, isLoading, isError } = useQuery({
     queryKey: ["social-feed"],
     queryFn: async () => {
-      // Fetch posts and deeply join profiles, linked cigars, likes, and comment counts
       const { data, error } = await supabase
         .from("social_posts")
         .select(`
@@ -61,41 +59,48 @@ const Social = () => {
   });
 
   return (
-    <div className="relative min-h-full bg-background pb-24">
-      <div className="ember-glow pointer-events-none fixed inset-x-0 top-0 h-64 z-0" />
+    <div className="relative min-h-full">
+      {/* Background Ember Glow matching other tabs */}
+      <div className="ember-glow pointer-events-none absolute inset-x-0 top-0 h-64" />
 
-      <div className="relative z-10 mx-auto w-full max-w-lg px-0 sm:px-4">
-        {/* Header */}
-        <header className="flex items-center justify-between border-b border-border/50 bg-background/80 px-4 pb-3 pt-[calc(1.5rem+env(safe-area-inset-top,16px))] backdrop-blur-md sticky top-0 z-20">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground" style={{ fontFamily: "serif" }}>
-            Community
-          </h1>
-          <button className="rounded-full p-2 text-foreground transition-colors hover:bg-muted active:scale-95">
-            <Send size={20} />
-          </button>
+      {/* Main Container matching other tabs */}
+      <div className="relative mx-auto w-full max-w-lg px-4">
+        
+        {/* Header matching Journal/Forum */}
+        <header className="flex items-end justify-between pb-4 pt-[calc(2rem+env(safe-area-inset-top,16px))]">
+          <div>
+            <h1 className="text-[28px] font-bold leading-tight tracking-tight text-foreground">
+              Social
+            </h1>
+            <p className="text-sm text-muted-foreground transition-all duration-200">
+              Community feed and shared journals
+            </p>
+          </div>
         </header>
 
         {/* Feed */}
         {isLoading ? (
-          <div className="mt-20 flex justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <div className="mt-8 space-y-4">
+            {[1, 2].map((i) => (
+              <div key={i} className="animate-pulse rounded-2xl border border-border bg-card p-4 h-64" />
+            ))}
           </div>
         ) : isError ? (
           <div className="p-8 text-center text-muted-foreground">Failed to load feed.</div>
         ) : !posts || posts.length === 0 ? (
-          <div className="mt-20 flex flex-col items-center p-8 text-center">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-border text-4xl">
-              📸
+          <div className="animate-scale-in mt-16 flex flex-col items-center text-center">
+            <div className="ember-glow mb-5 flex h-24 w-24 items-center justify-center rounded-full">
+              <span className="text-4xl">📸</span>
             </div>
-            <h2 className="text-xl font-bold text-foreground">Welcome to Social</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              When people share their cigar journals, they will appear here. Go to your Journal to share the first one!
+            <h2 className="text-lg font-semibold text-foreground">Welcome to Social</h2>
+            <p className="mt-1 max-w-[260px] text-sm text-muted-foreground">
+              When people share their cigar journals, they will appear here.
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-6 pt-4 sm:gap-8">
-            {posts.map((post) => (
-              <SocialPostCard key={post.id} post={post} currentUser={user} />
+          <div className="space-y-4 pb-28">
+            {posts.map((post, i) => (
+              <SocialPostCard key={post.id} post={post} currentUser={user} index={i} />
             ))}
           </div>
         )}
@@ -104,11 +109,10 @@ const Social = () => {
   );
 };
 
-function SocialPostCard({ post, currentUser }: { post: SocialPost; currentUser: any }) {
+function SocialPostCard({ post, currentUser, index }: { post: SocialPost; currentUser: any; index: number }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  // Check if current user has liked this post
   const hasLiked = post.social_likes.some((like) => like.user_id === currentUser?.id);
   const [optimisticLike, setOptimisticLike] = useState(hasLiked);
   const [likeCount, setLikeCount] = useState(post.social_likes.length);
@@ -119,7 +123,6 @@ function SocialPostCard({ post, currentUser }: { post: SocialPost; currentUser: 
       return;
     }
 
-    // Optimistic UI update instantly makes it feel fast
     const isLiking = !optimisticLike;
     setOptimisticLike(isLiking);
     setLikeCount((prev) => (isLiking ? prev + 1 : prev - 1));
@@ -130,10 +133,8 @@ function SocialPostCard({ post, currentUser }: { post: SocialPost; currentUser: 
       } else {
         await supabase.from("social_likes").delete().match({ post_id: post.id, user_id: currentUser.id });
       }
-      // Silently refresh the feed in the background
       queryClient.invalidateQueries({ queryKey: ["social-feed"] });
     } catch (error) {
-      // Revert if it fails
       setOptimisticLike(!isLiking);
       setLikeCount((prev) => (isLiking ? prev - 1 : prev + 1));
       toast.error("Failed to update like");
@@ -145,39 +146,42 @@ function SocialPostCard({ post, currentUser }: { post: SocialPost; currentUser: 
   };
 
   return (
-    <article className="border-b border-border/40 bg-card pb-5 sm:rounded-2xl sm:border">
+    <article 
+      className="animate-fade-up rounded-2xl border border-border bg-card overflow-hidden transition-all hover:border-accent/30"
+      style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
+    >
       {/* Post Header */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between p-4 pb-3">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 overflow-hidden rounded-full border border-border bg-muted">
+          <div className="h-9 w-9 overflow-hidden rounded-full border border-border bg-muted">
             {post.profiles?.avatar_url ? (
               <img src={post.profiles.avatar_url} alt="avatar" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[10px] font-bold">
+              <div className="flex h-full w-full items-center justify-center text-xs font-bold text-muted-foreground">
                 {(post.profiles?.name || "A")[0].toUpperCase()}
               </div>
             )}
           </div>
           <div>
-            <p className="text-[13px] font-semibold leading-tight text-foreground">
+            <p className="text-[14px] font-semibold leading-tight text-foreground">
               {post.profiles?.name || "Anonymous"}
             </p>
             {post.cigars?.location && (
-              <p className="text-[11px] text-muted-foreground">{post.cigars.location}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{post.cigars.location}</p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</span>
-          <button className="p-1 text-muted-foreground hover:text-foreground">
+          <button className="p-1 text-muted-foreground transition-colors hover:text-foreground active:scale-95">
             <MoreVertical size={16} />
           </button>
         </div>
       </div>
 
-      {/* Main Image (If uploaded specifically for this post) */}
+      {/* Main Image (Edge to edge inside the card) */}
       {post.image_url && (
-        <div className="relative aspect-square w-full bg-black/5">
+        <div className="relative aspect-square w-full bg-black/20">
           <img src={post.image_url} alt="Post" className="absolute inset-0 h-full w-full object-cover" />
         </div>
       )}
@@ -187,27 +191,29 @@ function SocialPostCard({ post, currentUser }: { post: SocialPost; currentUser: 
         <div className={`px-4 ${post.image_url ? "mt-4" : ""}`}>
           <div 
             onClick={() => navigate(`/entry/${post.cigars.id}`)}
-            className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background/50 p-3 transition-colors hover:bg-accent/5 active:scale-[0.98]"
+            className="group flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background/50 p-3 transition-colors hover:border-accent/40 hover:bg-accent/5 active:scale-[0.98]"
           >
             {/* Tiny Cigar Thumbnail */}
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[hsl(var(--field))]">
               {post.cigars.photos && post.cigars.photos.length > 0 ? (
-                <img src={post.cigars.photos[0]} alt="Cigar" className="h-full w-full object-cover" />
+                <img src={post.cigars.photos[0]} alt="Cigar" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-xl">🚬</div>
+                <div className="flex h-full w-full items-center justify-center">
+                  <span className="text-xl">🚬</span>
+                </div>
               )}
             </div>
             {/* Cigar Specs */}
             <div className="min-w-0 flex-1">
               <h4 className="truncate text-sm font-bold text-foreground">{post.cigars.cigarName}</h4>
-              <p className="truncate text-xs text-muted-foreground">{post.cigars.brand}</p>
-              <div className="mt-1">
+              <p className="truncate text-xs text-muted-foreground mt-0.5">{post.cigars.brand}</p>
+              <div className="mt-1.5">
                 <StrengthBolts strength={post.cigars.strength} size={10} />
               </div>
             </div>
             {/* Rating */}
             {post.cigars.rating > 0 && (
-              <div className="shrink-0 rounded-full bg-accent/10 px-2.5 py-1">
+              <div className="shrink-0 rounded-full bg-accent/10 px-2.5 py-1 border border-accent/20">
                 <span className="text-sm font-bold text-accent">{post.cigars.rating.toFixed(1)}</span>
               </div>
             )}
@@ -215,41 +221,41 @@ function SocialPostCard({ post, currentUser }: { post: SocialPost; currentUser: 
         </div>
       )}
 
-      {/* Action Bar */}
-      <div className="px-4 py-3">
+      {/* Action Bar & Caption */}
+      <div className="p-4 pt-3">
         <div className="flex items-center gap-4">
           <button onClick={handleToggleLike} className="transition-transform active:scale-75">
             <Heart 
-              size={24} 
-              className={`transition-colors ${optimisticLike ? "fill-red-500 text-red-500" : "text-foreground"}`} 
+              size={22} 
+              className={`transition-colors ${optimisticLike ? "fill-accent text-accent" : "text-muted-foreground hover:text-foreground"}`} 
             />
           </button>
-          <button onClick={handleCommentClick} className="transition-transform active:scale-75 text-foreground">
-            <MessageCircle size={24} />
+          <button onClick={handleCommentClick} className="transition-transform active:scale-75 text-muted-foreground hover:text-foreground">
+            <MessageCircle size={22} />
           </button>
-          <button className="transition-transform active:scale-75 text-foreground">
-            <Send size={24} />
+          <button className="transition-transform active:scale-75 text-muted-foreground hover:text-foreground">
+            <Send size={22} />
           </button>
         </div>
         
         {/* Likes Count */}
         {likeCount > 0 && (
-          <p className="mt-2 text-[13px] font-semibold text-foreground">
+          <p className="mt-2.5 text-[13px] font-semibold text-foreground">
             {likeCount} {likeCount === 1 ? "like" : "likes"}
           </p>
         )}
 
         {/* Caption */}
         {post.caption && (
-          <div className="mt-1.5 text-[13px] text-foreground">
+          <div className={`text-[13px] text-foreground ${likeCount > 0 ? "mt-1" : "mt-2.5"}`}>
             <span className="mr-1.5 font-semibold">{post.profiles?.name || "Anonymous"}</span>
-            <span className="whitespace-pre-wrap">{post.caption}</span>
+            <span className="whitespace-pre-wrap text-muted-foreground">{post.caption}</span>
           </div>
         )}
 
         {/* View Comments Link */}
         {post.social_comments && post.social_comments.length > 0 && post.social_comments[0]?.count > 0 && (
-          <button onClick={handleCommentClick} className="mt-1.5 text-[13px] text-muted-foreground">
+          <button onClick={handleCommentClick} className="mt-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
             View all {post.social_comments[0].count} comments
           </button>
         )}
