@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, MoreVertical, Loader2, X, Send, Plus } from "lucide-react";
+import { Heart, MessageCircle, MoreVertical, Loader2, X, Send, Plus, MapPin } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -195,6 +195,13 @@ function SocialPostCard({
     }
   };
 
+  // Format the date for the embedded journal card to match the Journal tab perfectly
+  const cigarDateStr = post.cigars?.timestamp || post.cigars?.created_at;
+  const formattedCigarDate = cigarDateStr ? new Date(cigarDateStr).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  }) : "";
+
   return (
     <article 
       className="animate-fade-up rounded-2xl border border-border bg-card overflow-hidden transition-all hover:border-accent/30"
@@ -215,9 +222,6 @@ function SocialPostCard({
             <p className="text-[14px] font-semibold leading-tight text-foreground">
               {post.profiles?.name || "Anonymous"}
             </p>
-            {post.cigars?.location && (
-              <p className="text-[11px] text-muted-foreground mt-0.5">{post.cigars.location}</p>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -234,33 +238,83 @@ function SocialPostCard({
         </div>
       )}
 
+      {/* Linked Journal Card - Now perfectly matching the Journal tab layout */}
       {post.cigars && (
         <div className={`px-4 ${post.image_url ? "mt-4" : ""}`}>
           <div 
             onClick={() => navigate(`/entry/${post.cigars.id}`)}
-            className="group flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background/50 p-3 transition-colors hover:border-accent/40 hover:bg-accent/5 active:scale-[0.98]"
+            className="group w-full cursor-pointer overflow-hidden rounded-2xl border border-border bg-background/50 text-left transition-all duration-200 active:scale-[0.985] hover:border-accent/40"
           >
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[hsl(var(--field))]">
-              {post.cigars.photos && post.cigars.photos.length > 0 ? (
-                <img src={post.cigars.photos[0]} alt="Cigar" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <span className="text-xl">🚬</span>
+            <div className="flex h-[130px]">
+              <div className="relative h-full w-[110px] shrink-0 overflow-hidden bg-[hsl(var(--field))]">
+                {post.cigars.photos && post.cigars.photos.length > 0 ? (
+                  <img
+                    src={post.cigars.photos[0]}
+                    alt={post.cigars.cigar_name || "Cigar"}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <div className="ember-glow flex h-12 w-12 items-center justify-center rounded-full">
+                      <span className="text-2xl">🚬</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col justify-between p-3.5">
+                <div className="min-w-0">
+                  {/* Top Row: Title & Date */}
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="truncate text-[15px] font-semibold text-foreground">
+                      {/* Check raw DB name or mapped name as a fallback */}
+                      {post.cigars.cigar_name || post.cigars.cigarName || post.cigars.name || "Untitled Cigar"}
+                    </h3>
+                    <span className="shrink-0 text-[11px] font-medium text-muted-foreground mt-0.5">
+                      {formattedCigarDate}
+                    </span>
+                  </div>
+
+                  {/* Middle Row: Details & Rating */}
+                  <div className="mt-0.5 flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      {post.cigars.brand && (
+                        <p className="truncate text-[13px] text-accent/90">{post.cigars.brand}</p>
+                      )}
+                      {post.cigars.vitola && (
+                        <p className="truncate text-xs text-muted-foreground mt-0.5">
+                          {post.cigars.vitola}
+                        </p>
+                      )}
+                    </div>
+
+                    {post.cigars.rating > 0 && (
+                      <div className="flex shrink-0 items-baseline gap-0.5 rounded-full bg-accent/10 px-2 py-0.5 mt-0.5 border border-accent/20">
+                        <span className="text-sm font-bold text-accent">
+                          {Number(post.cigars.rating).toFixed(1)}
+                        </span>
+                        <span className="text-[10px] font-medium text-accent/70">
+                          /10
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="truncate text-sm font-bold text-foreground">{post.cigars.cigarName}</h4>
-              <p className="truncate text-xs text-muted-foreground mt-0.5">{post.cigars.brand}</p>
-              <div className="mt-1.5">
-                <StrengthBolts strength={post.cigars.strength} size={10} />
+
+                {/* Bottom Row: Specs */}
+                <div className="flex items-end justify-between gap-2 mt-auto pt-2">
+                  <div className="flex flex-col gap-1.5">
+                    <StrengthBolts strength={post.cigars.strength} size={12} />
+                    {post.cigars.location && (
+                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <MapPin size={11} className="shrink-0" />
+                        <span className="max-w-[90px] truncate">{post.cigars.location}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-            {post.cigars.rating > 0 && (
-              <div className="shrink-0 rounded-full bg-accent/10 px-2.5 py-1 border border-accent/20">
-                <span className="text-sm font-bold text-accent">{post.cigars.rating.toFixed(1)}</span>
-              </div>
-            )}
           </div>
         </div>
       )}
