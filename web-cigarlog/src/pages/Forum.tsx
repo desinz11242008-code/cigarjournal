@@ -7,22 +7,22 @@ import {
   RefreshCw,
   Wine,
   Star,
+  Trash2,
 } from "lucide-react";
-import { useContext, useMemo, useState } from "react";
+import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { SignInContext } from "@/components/TabLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type ForumPost = Tables<"forum_posts">;
 type Profile = Tables<"profiles">;
 
-type PostWithProfile = ForumPost & {
-  profiles: { name: string | null; avatar_url: string | null } | null;
-};
+type PostWithProfile = ForumPost & { profiles: Profile | null };
 
 type TabMode = "discussion" | "suggestion" | "qa" | "review" | "pairing";
 
@@ -85,7 +85,6 @@ const Forum = () => {
 
   const categoryFilter = CATEGORY_DB_FILTER[tabMode];
 
-  // Fetch both datasets in a single multi-query operation to bypass URL parameter crashes
   const { data: combinedData, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["forum-posts-combined", tabMode],
     queryFn: async () => {
@@ -99,18 +98,25 @@ const Forum = () => {
       if (postsError) throw postsError;
       if (!postsData || postsData.length === 0) return [];
 
-      // 2. Extract unique user IDs from those posts
-      const userIds = Array.from(new Set(postsData.map((p) => p.user_id)));
+      // 2. Extract unique user IDs
+      const userIds = Array.from(new Set(postsData.map((p) => p.user_id))).filter(Boolean);
 
-      // 3. Fetch matching profiles in ONE clean, comma-less request
+      if (userIds.length === 0) {
+        return postsData.map(post => ({ ...post, profiles: null })) as PostWithProfile[];
+      }
+
+      // 3. Fetch matching profiles
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select("id,name,avatar_url")
+        .select("*") 
         .in("id", userIds);
 
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error("🚨 SUPABASE PROFILES ERROR:", profilesError);
+        return postsData.map((post) => ({ ...post, profiles: null })) as PostWithProfile[];
+      }
 
-      // 4. Map profiles to posts on the client side
+      // 4. Map profiles to posts
       const profileMap = new Map(profilesData?.map((p) => [p.id, p]) ?? []);
       
       return postsData.map((post) => ({
@@ -234,6 +240,10 @@ function PostCard({
   index: number;
   onClick: () => void;
 }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const score = post.upvotes - post.downvotes;
   const bodyPreview =
     post.body && post.body.length > 150 ? post.body.slice(0, 150) + "…" : post.body;
@@ -242,10 +252,38 @@ function PostCard({
                        (post.category === "recommendation" ? "Cigar Suggestion" : 
                         post.category === "question" ? "Q&A" : post.category);
 
+  // Check if the currently logged-in user is the author of this post
+  const isAuthor = user?.id === post.user_id;
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevents clicking the delete button from opening the post page
+    
+    if (!window.confirm("Are you sure you want to delete this post? This cannot be undone.")) return;
+
+    try {
+      setIsDeleting(true);
+      const { error } = await supabase
+        .from("forum_posts")
+        .delete()
+        .eq("id", post.id);
+
+      if (error) throw error;
+      
+      toast.success("Post deleted.");
+      // Instantly remove it from the screen without a full page reload
+      queryClient.invalidateQueries({ queryKey: ["forum-posts-combined"] });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete post");
+      console.error(error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <article
       onClick={onClick}
-      className="animate-fade-up cursor-pointer rounded-2xl border border-border bg-card p-4 transition-all hover:border-accent/30 active:scale-[0.99]"
+      className={`animate-fade-up cursor-pointer rounded-2xl border border-border bg-card p-4 transition-all hover:border-accent/30 active:scale-[0.99] ${isDeleting ? "opacity-50 pointer-events-none" : ""}`}
       style={{ animationDelay: `${index * 50}ms` }}
     >
       <div className="mb-2 flex items-center gap-2">
@@ -288,7 +326,18 @@ function PostCard({
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          {/* Delete Button - Only renders if they are the author */}
+          {isAuthor && (
+            <button 
+              onClick={handleDelete}
+              className="flex items-center justify-center p-1 text-muted-foreground transition-colors hover:text-destructive active:scale-90"
+              aria-label="Delete post"
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
+
           <span className="flex items-center gap-1">
             <ArrowBigUp size={14} className={score > 0 ? "text-accent" : ""} />
             {score}
