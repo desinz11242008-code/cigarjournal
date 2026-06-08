@@ -41,7 +41,6 @@ const Social = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
-  // States for our two modals
   const [commentPostId, setCommentPostId] = useState<string | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   
@@ -125,7 +124,6 @@ const Social = () => {
         )}
       </div>
 
-      {/* Floating Action Button (FAB) */}
       {user && (
         <button
           type="button"
@@ -137,7 +135,6 @@ const Social = () => {
         </button>
       )}
 
-      {/* Modals */}
       <CommentModal 
         postId={commentPostId} 
         isOpen={!!commentPostId} 
@@ -195,7 +192,6 @@ function SocialPostCard({
     }
   };
 
-  // Format the date for the embedded journal card to match the Journal tab perfectly
   const cigarDateStr = post.cigars?.timestamp || post.cigars?.created_at;
   const formattedCigarDate = cigarDateStr ? new Date(cigarDateStr).toLocaleDateString(undefined, {
     month: "short",
@@ -238,7 +234,6 @@ function SocialPostCard({
         </div>
       )}
 
-      {/* Linked Journal Card - Now perfectly matching the Journal tab layout */}
       {post.cigars && (
         <div className={`px-4 ${post.image_url ? "mt-4" : ""}`}>
           <div 
@@ -264,10 +259,8 @@ function SocialPostCard({
 
               <div className="flex min-w-0 flex-1 flex-col justify-between p-3.5">
                 <div className="min-w-0">
-                  {/* Top Row: Title & Date */}
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="truncate text-[15px] font-semibold text-foreground">
-                      {/* Check raw DB name or mapped name as a fallback */}
                       {post.cigars.cigar_name || post.cigars.cigarName || post.cigars.name || "Untitled Cigar"}
                     </h3>
                     <span className="shrink-0 text-[11px] font-medium text-muted-foreground mt-0.5">
@@ -275,7 +268,6 @@ function SocialPostCard({
                     </span>
                   </div>
 
-                  {/* Middle Row: Details & Rating */}
                   <div className="mt-0.5 flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       {post.cigars.brand && (
@@ -301,7 +293,6 @@ function SocialPostCard({
                   </div>
                 </div>
 
-                {/* Bottom Row: Specs */}
                 <div className="flex items-end justify-between gap-2 mt-auto pt-2">
                   <div className="flex flex-col gap-1.5">
                     <StrengthBolts strength={post.cigars.strength} size={12} />
@@ -355,6 +346,84 @@ function SocialPostCard({
   );
 }
 
+// --- NEW COMPONENT FOR INDIVIDUAL COMMENTS ---
+function CommentRow({ comment, currentUser }: { comment: any; currentUser: any }) {
+  const queryClient = useQueryClient();
+  
+  // Check if current user has liked this specific comment
+  const hasLiked = comment.social_comment_likes?.some((like: any) => like.user_id === currentUser?.id);
+  const [optimisticLike, setOptimisticLike] = useState(hasLiked);
+  const [likeCount, setLikeCount] = useState(comment.social_comment_likes?.length || 0);
+
+  const handleToggleLike = async () => {
+    if (!currentUser) {
+      toast.error("Sign in to like comments");
+      return;
+    }
+
+    const isLiking = !optimisticLike;
+    setOptimisticLike(isLiking);
+    setLikeCount((prev: number) => (isLiking ? prev + 1 : prev - 1));
+
+    try {
+      if (isLiking) {
+        await supabase.from("social_comment_likes").insert({ comment_id: comment.id, user_id: currentUser.id });
+      } else {
+        await supabase.from("social_comment_likes").delete().match({ comment_id: comment.id, user_id: currentUser.id });
+      }
+      queryClient.invalidateQueries({ queryKey: ["comments"] });
+    } catch (error) {
+      setOptimisticLike(!isLiking);
+      setLikeCount((prev: number) => (isLiking ? prev - 1 : prev + 1));
+    }
+  };
+
+  return (
+    <div className="flex gap-3 group">
+      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+        {comment.profiles?.avatar_url ? (
+          <img src={comment.profiles.avatar_url} alt="avatar" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[10px] font-bold text-muted-foreground">
+            {(comment.profiles?.name || "A")[0].toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className="flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[13px] font-semibold text-foreground">
+            {comment.profiles?.name || "Anonymous"}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            {timeAgo(comment.created_at)}
+          </span>
+        </div>
+        <p className="text-[13px] text-foreground mt-0.5 leading-relaxed">
+          {comment.body}
+        </p>
+      </div>
+      {/* Small Heart Icon for the Comment */}
+      <div className="flex flex-col items-center justify-start pt-1 pl-2">
+        <button 
+          onClick={handleToggleLike} 
+          className="transition-transform active:scale-75 p-1"
+        >
+          <Heart 
+            size={14} 
+            className={`transition-colors ${optimisticLike ? "fill-accent text-accent" : "text-muted-foreground hover:text-foreground"}`} 
+          />
+        </button>
+        {likeCount > 0 && (
+          <span className="text-[10px] font-medium text-muted-foreground -mt-0.5">
+            {likeCount}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 // --- COMMENT MODAL COMPONENT ---
 function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOpen: boolean; onClose: () => void }) {
   const { user } = useAuth();
@@ -366,11 +435,13 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
     queryKey: ["comments", postId],
     enabled: isOpen && !!postId,
     queryFn: async () => {
+      // Added `social_comment_likes (user_id)` to the fetch query
       const { data, error } = await supabase
         .from("social_comments")
         .select(`
           *,
-          profiles:user_id (name, avatar_url)
+          profiles:user_id (name, avatar_url),
+          social_comment_likes (user_id)
         `)
         .eq("post_id", postId)
         .order("created_at", { ascending: true });
@@ -446,30 +517,7 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
             </div>
           ) : (
             comments.map((comment) => (
-              <div key={comment.id} className="flex gap-3">
-                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
-                  {comment.profiles?.avatar_url ? (
-                    <img src={comment.profiles.avatar_url} alt="avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-[10px] font-bold text-muted-foreground">
-                      {(comment.profiles?.name || "A")[0].toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[13px] font-semibold text-foreground">
-                      {comment.profiles?.name || "Anonymous"}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {timeAgo(comment.created_at)}
-                    </span>
-                  </div>
-                  <p className="text-[13px] text-foreground mt-0.5 leading-relaxed">
-                    {comment.body}
-                  </p>
-                </div>
-              </div>
+              <CommentRow key={comment.id} comment={comment} currentUser={user} />
             ))
           )}
         </div>
