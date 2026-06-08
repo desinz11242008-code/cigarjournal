@@ -1,10 +1,53 @@
-import { Camera, LogOut, Mail, User as UserIcon, Save, Loader2 } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { Camera, LogOut, Mail, User as UserIcon, Save, Loader2, X, Check } from "lucide-react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import Cropper from "react-easy-crop";
 
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+
+// --- Canvas Helper: Snips the image based on the user's crop coordinates ---
+const createImage = (url: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", (error) => reject(error));
+    image.src = url;
+  });
+
+async function getCroppedImg(
+  imageSrc: string,
+  pixelCrop: { x: number; y: number; width: number; height: number }
+): Promise<Blob | null> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) return null;
+
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  return new Promise((resolve) => {
+    canvas.toBlob((file) => {
+      resolve(file);
+    }, "image/jpeg", 0.9);
+  });
+}
+// --------------------------------------------------------------------------
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -12,11 +55,17 @@ const Settings = () => {
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Cropper State
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [isCropping, setIsCropping] = useState(false);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -50,33 +99,56 @@ const Settings = () => {
     loadProfile();
   }, [user]);
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      setUploading(true);
-      if (!event.target.files || event.target.files.length === 0) return;
-      
-      const file = event.target.files[0];
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user?.id}-${Math.random()}.${fileExt}`;
+  // 1. User selects a file -> Load it into the cropper
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        setSelectedImage(reader.result?.toString() || null);
+      });
+      reader.readAsDataURL(file);
+    }
+    // Reset the input so they can select the same file again if they cancel
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
-      // Upload image to Supabase Storage
+  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  // 2. User confirms crop -> Process image and upload to Supabase
+  const handleCropAndUpload = async () => {
+    if (!selectedImage || !croppedAreaPixels || !user) return;
+
+    try {
+      setIsCropping(true);
+      
+      // Snip the image using our canvas helper
+      const croppedBlob = await getCroppedImg(selectedImage, croppedAreaPixels);
+      if (!croppedBlob) throw new Error("Failed to crop image.");
+
+      const filePath = `${user.id}-${Math.random()}.jpg`;
+
+      // Upload the cropped blob to Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file);
+        .from("avatars")
+        .upload(filePath, croppedBlob, { contentType: "image/jpeg" });
 
       if (uploadError) throw uploadError;
 
-      // Get the public URL for the image
+      // Get the public URL for the new image
       const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
+        .from("avatars")
         .getPublicUrl(filePath);
 
       setAvatarUrl(publicUrl);
+      setSelectedImage(null); // Close the cropper modal
       toast.success("Profile picture updated!");
     } catch (error: any) {
       toast.error(error.message || "Error uploading image");
     } finally {
-      setUploading(false);
+      setIsCropping(false);
     }
   };
 
@@ -122,6 +194,42 @@ const Settings = () => {
 
   return (
     <div className="relative min-h-screen bg-background pb-24">
+      {/* Cropper Modal Overlay */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md">
+          <div className="relative flex-1">
+            <Cropper
+              image={selectedImage}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              cropShape="round"
+              showGrid={false}
+              onCropChange={setCrop}
+              onCropComplete={onCropComplete}
+              onZoomChange={setZoom}
+            />
+          </div>
+          <div className="flex items-center justify-between border-t border-border bg-card p-6 pb-safe">
+            <button
+              onClick={() => setSelectedImage(null)}
+              disabled={isCropping}
+              className="flex items-center gap-2 rounded-full px-6 py-3 font-medium text-muted-foreground transition-colors hover:bg-muted active:scale-95 disabled:opacity-50"
+            >
+              <X size={18} /> Cancel
+            </button>
+            <button
+              onClick={handleCropAndUpload}
+              disabled={isCropping}
+              className="flex items-center gap-2 rounded-full bg-accent px-8 py-3 font-semibold text-accent-foreground shadow-lg transition-transform active:scale-95 disabled:opacity-50"
+            >
+              {isCropping ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+              {isCropping ? "Processing..." : "Use Image"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="ember-glow pointer-events-none absolute inset-x-0 top-0 h-64" />
 
       <div className="relative mx-auto w-full max-w-lg px-4 pt-[calc(2rem+env(safe-area-inset-top,16px))]">
@@ -148,15 +256,14 @@ const Settings = () => {
                 </div>
               )}
               <div className="absolute bottom-0 right-0 rounded-full bg-accent p-2 shadow-md">
-                {uploading ? <Loader2 size={14} className="animate-spin text-accent-foreground" /> : <Camera size={14} className="text-accent-foreground" />}
+                <Camera size={14} className="text-accent-foreground" />
               </div>
               <input
                 type="file"
                 ref={fileInputRef}
                 className="hidden"
                 accept="image/*"
-                onChange={handleAvatarUpload}
-                disabled={uploading}
+                onChange={onFileChange}
               />
             </div>
             <h2 className="text-lg font-semibold text-foreground">{username || "New User"}</h2>
