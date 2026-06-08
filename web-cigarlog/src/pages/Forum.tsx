@@ -8,6 +8,7 @@ import {
   Wine,
   Star,
   Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -242,6 +243,9 @@ function PostCard({
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  
+  // New states for our custom modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const score = post.upvotes - post.downvotes;
@@ -252,13 +256,18 @@ function PostCard({
                        (post.category === "recommendation" ? "Cigar Suggestion" : 
                         post.category === "question" ? "Q&A" : post.category);
 
-  // Check if the currently logged-in user is the author of this post
   const isAuthor = user?.id === post.user_id;
 
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevents clicking the delete button from opening the post page
-    
-    if (!window.confirm("Are you sure you want to delete this post? This cannot be undone.")) return;
+  // Opens the custom modal without triggering the post click
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); 
+    setShowConfirmModal(true);
+  };
+
+  // Executes the actual database deletion
+  const executeDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowConfirmModal(false);
 
     try {
       setIsDeleting(true);
@@ -270,85 +279,125 @@ function PostCard({
       if (error) throw error;
       
       toast.success("Post deleted.");
-      // Instantly remove it from the screen without a full page reload
       queryClient.invalidateQueries({ queryKey: ["forum-posts-combined"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to delete post");
       console.error(error);
-    } finally {
-      setIsDeleting(false);
+      setIsDeleting(false); // Only reset if failed, otherwise it unmounts
     }
   };
 
   return (
-    <article
-      onClick={onClick}
-      className={`animate-fade-up cursor-pointer rounded-2xl border border-border bg-card p-4 transition-all hover:border-accent/30 active:scale-[0.99] ${isDeleting ? "opacity-50 pointer-events-none" : ""}`}
-      style={{ animationDelay: `${index * 50}ms` }}
-    >
-      <div className="mb-2 flex items-center gap-2">
-        <span
-          className={`rounded-md border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider ${CATEGORY_COLORS[post.category] ?? "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}
-        >
-          {displayLabel}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {timeAgo(post.created_at)}
-        </span>
-      </div>
-
-      <h3 className="mb-1.5 text-[16px] font-semibold leading-snug text-foreground">
-        {post.title}
-      </h3>
-
-      {post.body && (
-        <p className="mb-3 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
-          {bodyPreview}
-        </p>
-      )}
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {post.profiles?.avatar_url ? (
-            <img
-              src={post.profiles.avatar_url}
-              alt=""
-              className="h-5 w-5 rounded-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
-              {(post.profiles?.name ?? "A")[0]?.toUpperCase()}
-            </div>
-          )}
+    <>
+      <article
+        onClick={onClick}
+        className={`animate-fade-up cursor-pointer rounded-2xl border border-border bg-card p-4 transition-all hover:border-accent/30 active:scale-[0.99] ${isDeleting ? "opacity-50 pointer-events-none" : ""}`}
+        style={{ animationDelay: `${index * 50}ms` }}
+      >
+        <div className="mb-2 flex items-center gap-2">
+          <span
+            className={`rounded-md border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider ${CATEGORY_COLORS[post.category] ?? "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}
+          >
+            {displayLabel}
+          </span>
           <span className="text-xs text-muted-foreground">
-            {post.profiles?.name ?? "Anonymous"}
+            {timeAgo(post.created_at)}
           </span>
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          {/* Delete Button - Only renders if they are the author */}
-          {isAuthor && (
-            <button 
-              onClick={handleDelete}
-              className="flex items-center justify-center p-1 text-muted-foreground transition-colors hover:text-destructive active:scale-90"
-              aria-label="Delete post"
-            >
-              <Trash2 size={15} />
-            </button>
-          )}
+        <h3 className="mb-1.5 text-[16px] font-semibold leading-snug text-foreground">
+          {post.title}
+        </h3>
 
-          <span className="flex items-center gap-1">
-            <ArrowBigUp size={14} className={score > 0 ? "text-accent" : ""} />
-            {score}
-          </span>
-          <span className="flex items-center gap-1">
-            <MessageSquare size={13} />
-            {post.comment_count}
-          </span>
+        {post.body && (
+          <p className="mb-3 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
+            {bodyPreview}
+          </p>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {post.profiles?.avatar_url ? (
+              <img
+                src={post.profiles.avatar_url}
+                alt=""
+                className="h-5 w-5 rounded-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+                {(post.profiles?.name ?? "A")[0]?.toUpperCase()}
+              </div>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {post.profiles?.name ?? "Anonymous"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            {isAuthor && (
+              <button 
+                onClick={handleDeleteClick}
+                className="flex items-center justify-center p-1 text-muted-foreground transition-colors hover:text-destructive active:scale-90"
+                aria-label="Delete post"
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
+
+            <span className="flex items-center gap-1">
+              <ArrowBigUp size={14} className={score > 0 ? "text-accent" : ""} />
+              {score}
+            </span>
+            <span className="flex items-center gap-1">
+              <MessageSquare size={13} />
+              {post.comment_count}
+            </span>
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
+
+      {/* Custom Delete Confirmation Modal */}
+      {showConfirmModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowConfirmModal(false);
+          }}
+        >
+          <div 
+            className="animate-scale-in w-full max-w-xs rounded-3xl border border-border bg-card p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()} // Prevents clicks inside the modal from closing it
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <AlertTriangle size={24} />
+            </div>
+            <h3 className="mb-2 text-lg font-bold text-foreground">Delete Post?</h3>
+            <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+              This action cannot be undone. This will permanently remove your post and all its comments.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowConfirmModal(false);
+                }}
+                className="flex-1 rounded-xl bg-muted py-3 font-semibold text-foreground transition-colors hover:bg-muted/80 active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeDelete}
+                className="flex-1 rounded-xl bg-destructive py-3 font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90 active:scale-95"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
