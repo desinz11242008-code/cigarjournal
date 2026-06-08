@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, MoreVertical, Loader2, X, Send } from "lucide-react";
+import { Heart, MessageCircle, MoreVertical, Loader2, X, Send, Plus } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { StrengthBolts } from "@/components/Ratings";
+import { CreatePostModal } from "@/components/CreatePostModal";
 
 type SocialPost = {
   id: string;
@@ -38,8 +39,16 @@ function timeAgo(dateStr: string | null): string {
 
 const Social = () => {
   const { user } = useAuth();
-  const [commentPostId, setCommentPostId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   
+  // States for our two modals
+  const [commentPostId, setCommentPostId] = useState<string | null>(null);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  
+  const refreshFeed = () => {
+    queryClient.invalidateQueries({ queryKey: ["social-feed"] });
+  };
+
   const { data: posts, isLoading, isError } = useQuery({
     queryKey: ["social-feed"],
     queryFn: async () => {
@@ -87,12 +96,19 @@ const Social = () => {
         ) : !posts || posts.length === 0 ? (
           <div className="animate-scale-in mt-16 flex flex-col items-center text-center">
             <div className="ember-glow mb-5 flex h-24 w-24 items-center justify-center rounded-full">
-              <span className="text-4xl">📸</span>
+              <Plus size={32} className="text-accent" />
             </div>
             <h2 className="text-lg font-semibold text-foreground">Welcome to Social</h2>
             <p className="mt-1 max-w-[260px] text-sm text-muted-foreground">
-              When people share their cigar journals, they will appear here.
+              Track the community smoke. Light one up and share your first moment!
             </p>
+            <button
+                type="button"
+                onClick={() => setIsPostModalOpen(true)}
+                className="mt-6 rounded-full bg-accent px-6 py-3 font-semibold text-accent-foreground transition-transform active:scale-95"
+            >
+                Share Cigar Moment
+            </button>
           </div>
         ) : (
           <div className="space-y-4 pb-28">
@@ -109,11 +125,29 @@ const Social = () => {
         )}
       </div>
 
-      {/* Comment Modal Component */}
+      {/* Floating Action Button (FAB) */}
+      {user && (
+        <button
+          type="button"
+          onClick={() => setIsPostModalOpen(true)}
+          className="fixed right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom,24px))] md:bottom-[72px] z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_6px_24px_-4px_hsl(28_64%_56%/0.7)] transition-transform active:scale-95"
+          aria-label="Cigar Moment Share"
+        >
+          <Plus size={24} strokeWidth={2.8} />
+        </button>
+      )}
+
+      {/* Modals */}
       <CommentModal 
         postId={commentPostId} 
         isOpen={!!commentPostId} 
         onClose={() => setCommentPostId(null)} 
+      />
+
+      <CreatePostModal 
+        isOpen={isPostModalOpen} 
+        onClose={() => setIsPostModalOpen(false)}
+        onPostSuccess={refreshFeed}
       />
     </div>
   );
@@ -242,7 +276,6 @@ function SocialPostCard({
           <button onClick={onOpenComments} className="transition-transform active:scale-75 text-muted-foreground hover:text-foreground">
             <MessageCircle size={22} />
           </button>
-          {/* Share button removed from here */}
         </div>
         
         {likeCount > 0 && (
@@ -268,14 +301,13 @@ function SocialPostCard({
   );
 }
 
-// --- NEW COMMENT MODAL COMPONENT ---
+// --- COMMENT MODAL COMPONENT ---
 function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOpen: boolean; onClose: () => void }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch comments only when modal is open and we have a postId
   const { data: comments, isLoading } = useQuery({
     queryKey: ["comments", postId],
     enabled: isOpen && !!postId,
@@ -314,9 +346,8 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
 
       if (error) throw error;
       
-      setNewComment(""); // clear input
+      setNewComment(""); 
       
-      // Refresh the comments list and the main feed (to update comment count)
       queryClient.invalidateQueries({ queryKey: ["comments", postId] });
       queryClient.invalidateQueries({ queryKey: ["social-feed"] });
       
@@ -338,7 +369,6 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
         className="animate-fade-up flex h-[75vh] w-full flex-col overflow-hidden rounded-t-3xl border-t border-border bg-card shadow-2xl sm:h-[600px] sm:max-w-md sm:rounded-3xl sm:border"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 shrink-0">
           <h3 className="text-base font-bold text-foreground">Comments</h3>
           <button 
@@ -349,7 +379,6 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
           </button>
         </div>
 
-        {/* Comments List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {isLoading ? (
             <div className="flex justify-center py-8">
@@ -391,7 +420,6 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
           )}
         </div>
 
-        {/* Input Area */}
         <div className="border-t border-border/50 bg-background/50 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shrink-0">
           <form onSubmit={handleSubmit} className="relative flex items-center">
             <input
