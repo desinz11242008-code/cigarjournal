@@ -6,7 +6,6 @@ import {
   Plus,
   RefreshCw,
   Wine,
-  Star,
   Trash2,
   AlertTriangle,
   Globe,
@@ -26,14 +25,14 @@ type Profile = Tables<"profiles">;
 
 type PostWithProfile = ForumPost & { profiles: Profile | null };
 
-type TabMode = "all" | "discussion" | "suggestion" | "qa" | "review" | "pairing";
+// Removed "review" from the available tab modes
+type TabMode = "all" | "discussion" | "suggestion" | "qa" | "pairing";
 
 const CATEGORY_LABELS: Record<TabMode, string> = {
   all: "All Posts",
   discussion: "Discussion",
   suggestion: "Cigar Suggestion",
   qa: "Q&A",
-  review: "Review",
   pairing: "Pairing",
 };
 
@@ -42,7 +41,6 @@ const CATEGORY_DESCRIPTIONS: Record<TabMode, string> = {
   discussion: "General cigar chat and community news",
   suggestion: "Share and browse cigar recommendations",
   qa: "Ask and answer cigar questions",
-  review: "Read and post detailed cigar reviews",
   pairing: "Discover ideal drink and food pairings",
 };
 
@@ -51,7 +49,6 @@ const CATEGORY_DB_FILTER: Record<TabMode, string> = {
   discussion: "discussion",
   suggestion: "recommendation",
   qa: "question",
-  review: "review",
   pairing: "pairing",
 };
 
@@ -61,7 +58,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   suggestion: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   question: "bg-green-500/10 text-green-400 border-green-500/20",
   qa: "bg-green-500/10 text-green-400 border-green-500/20",
-  review: "bg-purple-500/10 text-purple-400 border-purple-500/20",
   pairing: "bg-pink-500/10 text-pink-400 border-pink-500/20",
 };
 
@@ -102,6 +98,9 @@ const Forum = () => {
       if (tabMode !== "all") {
         query = query.eq("category", categoryFilter);
       }
+
+      // Hide any lingering "review" posts from the "All" feed since we are deprecating it here
+      query = query.neq("category", "review");
 
       const { data: postsData, error: postsError } = await query;
 
@@ -166,7 +165,7 @@ const Forum = () => {
           </button>
         </header>
 
-        {/* Tab Switcher - Responsive scrolling on mobile, wrapping on desktop */}
+        {/* Tab Switcher */}
         <div className="no-scrollbar mb-4 flex gap-1 overflow-x-auto md:flex-wrap md:overflow-visible rounded-xl bg-card p-1">
           {(
             [
@@ -174,7 +173,6 @@ const Forum = () => {
               { key: "discussion" as const, icon: MessageSquare, label: "Discussion" },
               { key: "suggestion" as const, icon: Lightbulb, label: "Cigar Suggestion" },
               { key: "qa" as const, icon: HelpCircle, label: "Q&A" },
-              { key: "review" as const, icon: Star, label: "Review" },
               { key: "pairing" as const, icon: Wine, label: "Pairing" },
             ]
           ).map(({ key, icon: Icon, label }) => (
