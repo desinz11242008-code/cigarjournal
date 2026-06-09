@@ -1,4 +1,4 @@
-import { Loader2, Plus, X, Crop, ZoomIn, Send } from "lucide-react";
+import { Loader2, X, Crop, ZoomIn, Send, Image as ImageIcon } from "lucide-react";
 import { useState, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { toast } from "sonner";
@@ -20,38 +20,30 @@ export function CreatePostModal({
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Post State
   const [caption, setCaption] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Image Cropper State
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
-  // 1. Handle File Selection and FileReader
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      if (!file.type.startsWith("image/")) {
-        toast.error("Please select a valid image file.");
-        return;
-      }
-      
       const reader = new FileReader();
       reader.onload = () => {
         setImageSrc(reader.result as string);
+        // CRITICAL FIX: Reset file input so you can pick the same file again if needed
+        if (fileInputRef.current) fileInputRef.current.value = "";
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+  const onCropComplete = useCallback((_: any, croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
-  // 2. Clear state and close the modal
   const handleClose = () => {
     setImageSrc(null);
     setCaption("");
@@ -59,59 +51,29 @@ export function CreatePostModal({
     onClose();
   };
 
-  // 3. Main Post Submit Logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      toast.error("You must be signed in to create a post.");
-      return;
-    }
-    if (!imageSrc || !croppedAreaPixels) {
-      toast.error("Please select and crop an image.");
-      return;
-    }
-    if (!caption.trim()) {
-      toast.error("A caption is required.");
-      return;
-    }
+    if (!imageSrc || !caption.trim()) return;
 
     try {
       setIsSubmitting(true);
-
-      // A. Crop the final image
       const croppedImageBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
-      if (!croppedImageBlob) throw new Error("Failed to process cropped image.");
+      const filename = `${user?.id}-${uuidv4()}.jpg`;
+      
+      await supabase.storage.from("posts").upload(filename, croppedImageBlob!, { contentType: "image/jpeg" });
+      const { data } = supabase.storage.from("posts").getPublicUrl(filename);
 
-      // B. Generate a unique filename and upload to Supabase 'posts' bucket
-      const filename = `${user.id}-${uuidv4()}.jpg`;
-      const { error: uploadError } = await supabase.storage
-        .from("posts")
-        .upload(filename, croppedImageBlob, { contentType: "image/jpeg" });
-
-      if (uploadError) throw uploadError;
-
-      // C. Get the public URL for the newly uploaded file
-      const { data: publicUrlData } = supabase.storage
-        .from("posts")
-        .getPublicUrl(filename);
-      const publicImageUrl = publicUrlData.publicUrl;
-
-      // D. Insert a new row into the social_posts database table
-      const { error: dbError } = await supabase.from("social_posts").insert({
-        user_id: user.id,
-        image_url: publicImageUrl,
+      await supabase.from("social_posts").insert({
+        user_id: user?.id,
+        image_url: data.publicUrl,
         caption: caption.trim(),
       });
 
-      if (dbError) throw dbError;
-
-      // E. Clean up and provide feedback
-      toast.success("Cigar moment shared!");
+      toast.success("Shared!");
       handleClose();
-      onPostSuccess(); // Call this to refresh the main social feed query
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create post");
-      console.error(error);
+      onPostSuccess();
+    } catch (err) {
+      toast.error("Failed to post");
     } finally {
       setIsSubmitting(false);
     }
@@ -120,122 +82,52 @@ export function CreatePostModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col justify-end bg-background/80 backdrop-blur-sm sm:items-center sm:justify-center p-0 sm:p-4"
-      onClick={handleClose}
-    >
-      <form
-        onSubmit={handleSubmit}
-        className="animate-fade-up flex h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl border-t border-border bg-card shadow-2xl sm:h-[650px] sm:max-w-xl sm:rounded-3xl sm:border"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm" onClick={handleClose}>
+      <div className="w-full max-w-lg rounded-3xl border border-border bg-card shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border/50 px-5 py-4 shrink-0">
-          <h3 className="text-lg font-bold text-foreground">Create New Post</h3>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors active:scale-95"
-          >
-            <X size={18} />
-          </button>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="font-bold">Create Post</h3>
+          <button onClick={handleClose}><X size={18}/></button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          
-          {/* Image Picker / Cropper Container */}
-          <div className="relative aspect-square w-full rounded-2xl border-2 border-dashed border-border bg-card shadow-inner overflow-hidden">
+        {/* Content - Compact Layout */}
+        <div className="p-4 flex flex-col gap-4">
+          <div className="relative aspect-square w-full h-64 rounded-xl border-2 border-dashed border-border overflow-hidden bg-muted/50">
             {!imageSrc ? (
-              <div
-                className="flex h-full flex-col items-center justify-center cursor-pointer text-center"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <div className="ember-glow mb-4 flex h-20 w-20 items-center justify-center rounded-full">
-                  <Crop size={32} className="text-muted-foreground" />
-                </div>
-                <h4 className="text-sm font-semibold text-foreground">Click to upload your cigar moment</h4>
-                <p className="mt-1 max-w-[260px] text-xs text-muted-foreground">
-                  Perfectly square 1:1 format. Light one up!
-                </p>
-              </div>
+              <button onClick={() => fileInputRef.current?.click()} className="flex h-full w-full flex-col items-center justify-center gap-2">
+                <ImageIcon className="text-muted-foreground" />
+                <span className="text-xs font-medium">Upload Image</span>
+              </button>
             ) : (
-              // Cropper is active
-              <>
-                <div className="absolute inset-0 z-0">
-                  <Cropper
-                    image={imageSrc}
-                    crop={crop}
-                    zoom={zoom}
-                    aspect={1}
-                    onCropChange={setCrop}
-                    onCropComplete={onCropComplete}
-                    onZoomChange={setZoom}
-                  />
-                </div>
-                {/* Zoom Control Overlay */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex w-40 items-center gap-3 rounded-full bg-background/80 px-4 py-2 backdrop-blur-sm shadow-md">
-                    <ZoomIn size={14} className="text-muted-foreground shrink-0" />
-                    <input
-                        type="range"
-                        value={zoom}
-                        min={1}
-                        max={3}
-                        step={0.1}
-                        aria-labelledby="Zoom"
-                        onChange={(e) => setZoom(Number(e.target.value))}
-                        className="w-full h-1 bg-muted rounded-full appearance-none cursor-pointer accent-accent"
-                    />
-                </div>
-                {/* Change Image Button */}
-                <button
-                    type="button"
-                    onClick={() => {
-                        setImageSrc(null);
-                        setZoom(1);
-                    }}
-                    className="absolute top-4 right-4 z-10 rounded-full bg-accent/20 px-4 py-2 text-xs font-bold text-accent transition-colors hover:bg-accent/30 backdrop-blur-sm"
-                >
-                    Change
-                </button>
-              </>
+              <div className="relative w-full h-full">
+                <Cropper image={imageSrc} crop={crop} zoom={zoom} aspect={1} onCropChange={setCrop} onCropComplete={onCropComplete} onZoomChange={setZoom} />
+                <button onClick={() => setImageSrc(null)} className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full text-xs">Change</button>
+              </div>
             )}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/*"
-              className="hidden"
-            />
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
           </div>
 
-          {/* Caption Input */}
-          <div className="space-y-1.5">
-            <label htmlFor="caption" className="text-sm font-medium text-foreground">
-              Caption
-            </label>
-            <textarea
-              id="caption"
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="What are you smoking? Tell the community..."
-              className="h-28 w-full resize-none rounded-xl border border-border bg-background p-4 text-[15px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-accent/50"
-            />
-          </div>
+          <textarea
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            placeholder="Write a caption..."
+            className="w-full h-24 p-3 rounded-xl bg-background border border-border resize-none text-sm outline-none focus:border-accent"
+          />
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-border/50 bg-muted/20 px-5 py-4 shrink-0 mt-auto pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
-          <button
-            type="submit"
-            disabled={isSubmitting || !imageSrc || !caption.trim()}
-            className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-accent py-3.5 font-semibold text-accent-foreground shadow-[0_6px_24px_-4px_hsl(28_64%_56%/0.6)] transition-all active:scale-[0.98] disabled:opacity-50"
+        {/* Action */}
+        <div className="p-4 border-t border-border">
+          <button 
+            onClick={handleSubmit}
+            disabled={isSubmitting || !imageSrc}
+            className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-bold text-sm flex items-center justify-center gap-2"
           >
-            {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            {isSubmitting ? "Sharing moment..." : "Share Cigar Moment"}
+            {isSubmitting ? <Loader2 className="animate-spin" /> : <Send size={16}/>}
+            {isSubmitting ? "Posting..." : "Share"}
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
