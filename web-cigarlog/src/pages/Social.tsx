@@ -184,6 +184,7 @@ function SocialPostCard({
   const [likeCount, setLikeCount] = useState(post.social_likes.length);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showJournalEditConfirm, setShowJournalEditConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isAuthor = currentUser?.id === post.user_id;
@@ -223,6 +224,15 @@ function SocialPostCard({
     } catch (err) {
       toast.error("Failed to delete post");
       setIsDeleting(false);
+    }
+  };
+
+  const handleEditClick = () => {
+    setShowMenu(false);
+    if (post.cigar_id) {
+      setShowJournalEditConfirm(true);
+    } else {
+      onEdit();
     }
   };
 
@@ -273,7 +283,7 @@ function SocialPostCard({
                     <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
                     <div className="absolute right-0 top-full mt-1 w-36 rounded-xl border border-border bg-card shadow-lg p-1.5 z-20 animate-scale-in origin-top-right">
                       <button 
-                        onClick={() => { setShowMenu(false); onEdit(); }} 
+                        onClick={handleEditClick} 
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors text-foreground"
                       >
                         <Pencil size={14} /> Edit Post
@@ -439,6 +449,44 @@ function SocialPostCard({
                 className="flex-1 rounded-xl bg-red-500 py-3.5 text-[15px] font-bold text-white transition-transform active:scale-95 flex justify-center items-center gap-2 disabled:opacity-50 shadow-md shadow-red-500/20"
               >
                 {isDeleting ? <Loader2 size={18} className="animate-spin" /> : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IN-APP JOURNAL EDIT ROUTING CONFIRMATION MODAL */}
+      {showJournalEditConfirm && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+          onClick={() => setShowJournalEditConfirm(false)}
+        >
+          <div 
+            className="animate-scale-in w-full max-w-[340px] rounded-3xl border border-border bg-card p-6 shadow-2xl text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10">
+              <span className="text-2xl">🚬</span>
+            </div>
+            <h3 className="mb-2 text-xl font-bold text-foreground">Edit this journal?</h3>
+            <p className="mb-6 text-sm text-muted-foreground leading-relaxed">
+              This social post is linked directly to your Cigar Journal log data. To modify layout descriptions or photos, let's open its journal sheet!
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowJournalEditConfirm(false)}
+                className="flex-1 rounded-xl bg-muted py-3.5 text-[15px] font-bold text-foreground transition-transform active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowJournalEditConfirm(false);
+                  navigate(`/entry/${post.cigar_id}/edit`);
+                }}
+                className="flex-1 rounded-xl bg-accent py-3.5 text-[15px] font-bold text-accent-foreground transition-transform active:scale-95 shadow-md shadow-accent/20"
+              >
+                Edit Log Sheet
               </button>
             </div>
           </div>
