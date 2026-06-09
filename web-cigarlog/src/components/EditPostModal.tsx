@@ -118,9 +118,9 @@ export function EditPostModal({
 
         <div className="flex-1 flex flex-col overflow-y-auto">
           {stage === "upload" ? (
-            /* STAGE 1: Small Crop Box UI */
+            /* STAGE 1: Standard Cropper Container */
             <div className="p-5 flex flex-col items-center">
-              <div className={`relative h-64 w-64 overflow-hidden rounded-2xl border border-border bg-black shadow-inner ${!imageSrc ? 'border-dashed bg-muted/30 flex items-center justify-center' : ''}`}>
+              <div className={`relative w-full aspect-square overflow-hidden rounded-xl border border-border bg-black ${!imageSrc ? 'border-dashed bg-muted/30 flex items-center justify-center' : ''}`}>
                 {!imageSrc ? (
                   <button onClick={() => fileInputRef.current?.click()} className="flex h-full w-full flex-col items-center justify-center gap-3 p-6">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-background shadow-sm border border-border">
@@ -139,7 +139,7 @@ export function EditPostModal({
                       onCropComplete={onCropComplete} 
                       onZoomChange={setZoom} 
                     />
-                    <button onClick={() => setImageSrc(null)} className="absolute top-3 right-3 z-10 bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-bold border border-white/20 shadow-lg backdrop-blur-sm transition-transform active:scale-95">
+                    <button onClick={() => setImageSrc(null)} className="absolute top-3 right-3 z-10 bg-black/70 text-white px-3 py-1.5 rounded-full text-xs font-bold border border-white/10 transition-transform active:scale-95">
                       Change
                     </button>
                   </div>
@@ -148,10 +148,10 @@ export function EditPostModal({
               </div>
             </div>
           ) : (
-            /* STAGE 2: New Big Wide Banner Preview Flow */
+            /* STAGE 2: Full Width Square Preview Flow */
             <div className="space-y-0 flex-1">
-              {/* Confirmed Image as Big Wide Banner with centered Change button */}
-              <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden border-b border-border bg-black group shadow-lg">
+              {/* Changed aspect ratio to full aspect-square so the entire image is perfectly visible */}
+              <div className="relative aspect-square w-full shrink-0 overflow-hidden border-b border-border bg-black group shadow-md">
                 {croppedImage && <img src={croppedImage} alt="Post" className="h-full w-full object-cover" />}
                 <button 
                   onClick={() => setStage("upload")}
@@ -162,13 +162,13 @@ export function EditPostModal({
                 </button>
               </div>
               
-              {/* Caption Textarea below the wide banner */}
+              {/* Caption Textarea below the square banner */}
               <div className="p-5 flex-1 flex flex-col">
                 <textarea
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
                   placeholder="Write a caption..."
-                  className="w-full flex-1 min-h-32 p-4 rounded-2xl bg-background border border-border resize-none text-[15px] outline-none transition focus:border-accent shadow-sm"
+                  className="w-full h-28 p-4 rounded-2xl bg-background border border-border resize-none text-[15px] outline-none transition focus:border-accent shadow-sm"
                 />
               </div>
             </div>
