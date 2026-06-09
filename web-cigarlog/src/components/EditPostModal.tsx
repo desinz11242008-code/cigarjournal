@@ -109,23 +109,23 @@ export function EditPostModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm" onClick={handleClose}>
-      <div className="w-full max-w-sm rounded-3xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-3xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
-          <h3 className="font-bold text-md">{stage === "upload" ? "Select New Image" : "Edit Post"}</h3>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+          <h3 className="font-bold text-lg">{stage === "upload" ? "Select New Image" : "Edit Post"}</h3>
           <button onClick={handleClose} className="p-1 rounded-full hover:bg-muted transition-colors"><X size={18}/></button>
         </div>
 
         <div className="flex-1 flex flex-col">
           {stage === "upload" ? (
-            <div className="p-4 flex flex-col items-center">
-              <div className={`relative w-full h-64 overflow-hidden rounded-xl border border-border bg-black ${!imageSrc ? 'border-dashed bg-muted/30 flex items-center justify-center' : ''}`}>
+            <div className="p-5 flex flex-col items-center">
+              <div className={`relative w-full aspect-square overflow-hidden rounded-xl border border-border bg-black ${!imageSrc ? 'border-dashed bg-muted/30 flex items-center justify-center' : ''}`}>
                 {!imageSrc ? (
-                  <button onClick={() => fileInputRef.current?.click()} className="flex h-full w-full flex-col items-center justify-center gap-2.5 p-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-background shadow-sm border border-border">
-                      <ImageIcon className="text-muted-foreground" size={20} />
+                  <button onClick={() => fileInputRef.current?.click()} className="flex h-full w-full flex-col items-center justify-center gap-3 p-6">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-background shadow-sm border border-border">
+                      <ImageIcon className="text-muted-foreground" size={24} />
                     </div>
-                    <span className="text-xs font-semibold text-muted-foreground">Click to upload new image</span>
+                    <span className="text-sm font-semibold text-muted-foreground">Click to upload new image</span>
                   </button>
                 ) : (
                   <div className="relative w-full h-full">
@@ -138,7 +138,7 @@ export function EditPostModal({
                       onCropComplete={onCropComplete} 
                       onZoomChange={setZoom} 
                     />
-                    <button onClick={() => setImageSrc(null)} className="absolute top-3 right-3 z-10 bg-black/70 text-white px-3 py-1 rounded-full text-[11px] font-bold border border-white/10 transition-transform active:scale-95">
+                    <button onClick={() => setImageSrc(null)} className="absolute top-3 right-3 z-10 bg-black/70 text-white px-3 py-1.5 rounded-full text-xs font-bold border border-white/10 transition-transform active:scale-95">
                       Change
                     </button>
                   </div>
@@ -147,14 +147,14 @@ export function EditPostModal({
               </div>
             </div>
           ) : (
-            <div className="p-4 flex flex-col items-center gap-4">
-              <div className="relative aspect-square w-44 shrink-0 overflow-hidden rounded-xl border border-border bg-black shadow-sm group">
+            <div className="p-5 flex flex-col items-center gap-4">
+              <div className="relative aspect-square w-40 shrink-0 overflow-hidden rounded-xl border border-border bg-black shadow-sm group">
                 {croppedImage && <img src={croppedImage} alt="Post" className="h-full w-full object-cover" />}
                 <button 
                   onClick={() => setStage("upload")}
-                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100 text-white font-bold text-xs backdrop-blur-sm gap-1.5"
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100 text-white font-bold text-xs backdrop-blur-sm gap-2"
                 >
-                  <ImageIcon size={18} />
+                  <ImageIcon size={20} />
                   Change Image
                 </button>
               </div>
@@ -163,22 +163,22 @@ export function EditPostModal({
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 placeholder="Write a caption..."
-                className="w-full h-28 p-3 rounded-xl bg-background border border-border resize-none text-sm outline-none transition-colors focus:border-accent"
+                className="w-full h-32 p-4 rounded-xl bg-background border border-border resize-none text-[15px] outline-none transition-colors focus:border-accent"
               />
             </div>
           )}
         </div>
 
-        <div className="p-4 border-t border-border bg-card/50">
+        <div className="p-5 border-t border-border bg-card/50">
           {stage === "upload" ? (
-            <div className="flex gap-2.5">
-              <button onClick={() => { setStage("caption"); setImageSrc(null); }} className="w-1/3 py-3 rounded-xl bg-muted text-foreground font-bold text-sm flex items-center justify-center gap-1.5 transition-transform active:scale-[0.98]">
+            <div className="flex gap-3">
+              <button onClick={() => { setStage("caption"); setImageSrc(null); }} className="w-1/3 py-3.5 rounded-xl bg-muted text-foreground font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98]">
                   <ArrowLeft strokeWidth={2.5} size={16}/> Cancel
               </button>
               <button 
                 onClick={confirmImage}
                 disabled={!imageSrc}
-                className="w-2/3 py-3 rounded-xl bg-accent text-accent-foreground font-bold text-sm flex items-center justify-center gap-1.5 transition-transform active:scale-[0.98] disabled:opacity-50 shadow-sm"
+                className="w-2/3 py-3.5 rounded-xl bg-accent text-accent-foreground font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-50 shadow-sm"
               >
                 <Check strokeWidth={2.5} size={16}/> Confirm Image
               </button>
@@ -187,7 +187,7 @@ export function EditPostModal({
             <button 
                 onClick={handleSubmit}
                 disabled={isSubmitting || !caption.trim()}
-                className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-50 shadow-sm"
+                className="w-full py-3.5 rounded-xl bg-accent text-accent-foreground font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-50 shadow-sm"
             >
                 {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <Check strokeWidth={2.5} size={16}/>}
                 {isSubmitting ? "Saving..." : "Save Changes"}
