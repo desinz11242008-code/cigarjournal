@@ -1,4 +1,4 @@
-import { Loader2, X, Crop, ZoomIn, Send, Image as ImageIcon, Check } from "lucide-react";
+import { Loader2, X, Crop, ZoomIn, Send, Image as ImageIcon, Check, ArrowLeft } from "lucide-react";
 import { useState, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { toast } from "sonner";
@@ -20,6 +20,7 @@ export function CreatePostModal({
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 'upload' = picking/cropping, 'caption' = writing caption/confirming
   const [stage, setStage] = useState<"upload" | "caption">("upload");
   const [caption, setCaption] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,7 +71,7 @@ export function CreatePostModal({
         caption: caption.trim(),
       });
 
-      toast.success("Shared!");
+      toast.success("Shared successfully!");
       handleClose();
       onPostSuccess();
     } catch (err) {
@@ -86,14 +87,18 @@ export function CreatePostModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm" onClick={handleClose}>
       <div className="w-full max-w-lg rounded-3xl border border-border bg-card shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="font-bold">{stage === "upload" ? "Select & Crop" : "Write Caption"}</h3>
+          <h3 className="font-bold text-lg">
+            {stage === "upload" ? "Select & Crop Image" : "Add Caption"}
+          </h3>
           <button onClick={handleClose}><X size={18}/></button>
         </div>
 
+        {/* Content */}
         <div className="p-4 flex flex-col gap-4">
           {stage === "upload" ? (
-            <div className="relative aspect-square w-full h-64 rounded-xl border-2 border-dashed border-border overflow-hidden bg-muted/50">
+            <div className="relative aspect-square w-full h-80 rounded-xl border-2 border-dashed border-border overflow-hidden bg-muted/50">
               {!imageSrc ? (
                 <button onClick={() => fileInputRef.current?.click()} className="flex h-full w-full flex-col items-center justify-center gap-2">
                   <ImageIcon className="text-muted-foreground" />
@@ -102,6 +107,7 @@ export function CreatePostModal({
               ) : (
                 <div className="relative w-full h-full">
                   <Cropper image={imageSrc} crop={crop} zoom={zoom} aspect={1} onCropChange={setCrop} onCropComplete={onCropComplete} onZoomChange={setZoom} />
+                  <button onClick={() => setImageSrc(null)} className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full text-xs">Change</button>
                 </div>
               )}
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
@@ -110,31 +116,34 @@ export function CreatePostModal({
             <textarea
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
-              placeholder="Write a caption..."
-              className="w-full h-64 p-3 rounded-xl bg-background border border-border resize-none text-sm outline-none focus:border-accent"
+              placeholder="What are you smoking? Tell the community..."
+              className="w-full h-80 p-4 rounded-xl bg-background border border-border resize-none text-sm outline-none focus:border-accent"
             />
           )}
         </div>
 
+        {/* Dynamic Buttons */}
         <div className="p-4 border-t border-border">
           {stage === "upload" ? (
             <button 
               onClick={() => setStage("caption")}
               disabled={!imageSrc}
-              className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-bold text-sm flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-xl bg-accent text-accent-foreground font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
             >
-              <Check size={16}/> Confirm Selection
+              <Check size={18}/> Confirm Selection
             </button>
           ) : (
-            <div className="flex gap-2">
-                <button onClick={() => setStage("upload")} className="w-1/3 py-3 rounded-xl bg-muted font-bold text-sm">Back</button>
+            <div className="flex gap-3">
+                <button onClick={() => setStage("upload")} className="w-1/3 py-4 rounded-xl bg-muted font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
+                    <ArrowLeft size={18}/> Back
+                </button>
                 <button 
                     onClick={handleSubmit}
                     disabled={isSubmitting}
-                    className="w-2/3 py-3 rounded-xl bg-accent text-accent-foreground font-bold text-sm flex items-center justify-center gap-2"
+                    className="w-2/3 py-4 rounded-xl bg-accent text-accent-foreground font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                 >
-                    {isSubmitting ? <Loader2 className="animate-spin" /> : <Send size={16}/>}
-                    {isSubmitting ? "Posting..." : "Share"}
+                    {isSubmitting ? <Loader2 className="animate-spin" /> : <Send size={18}/>}
+                    {isSubmitting ? "Posting..." : "Share to Social"}
                 </button>
             </div>
           )}
