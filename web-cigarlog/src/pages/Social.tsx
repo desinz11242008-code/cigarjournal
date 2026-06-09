@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, MoreVertical, Loader2, X, Send, Plus, MapPin } from "lucide-react";
+import { Heart, MessageCircle, MoreVertical, Loader2, X, Send, Plus, MapPin, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { StrengthBolts } from "@/components/Ratings";
 import { CreatePostModal } from "@/components/CreatePostModal";
+import { EditPostModal } from "@/components/EditPostModal";
 
 type SocialPost = {
   id: string;
@@ -43,6 +44,7 @@ const Social = () => {
   
   const [commentPostId, setCommentPostId] = useState<string | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<SocialPost | null>(null);
   
   const refreshFeed = () => {
     queryClient.invalidateQueries({ queryKey: ["social-feed"] });
@@ -118,6 +120,8 @@ const Social = () => {
                 currentUser={user} 
                 index={i} 
                 onOpenComments={() => setCommentPostId(post.id)}
+                onEdit={() => setEditingPost(post)}
+                onRefresh={refreshFeed}
               />
             ))}
           </div>
@@ -146,6 +150,13 @@ const Social = () => {
         onClose={() => setIsPostModalOpen(false)}
         onPostSuccess={refreshFeed}
       />
+
+      <EditPostModal
+        isOpen={!!editingPost}
+        onClose={() => setEditingPost(null)}
+        post={editingPost}
+        onPostSuccess={refreshFeed}
+      />
     </div>
   );
 };
@@ -154,12 +165,16 @@ function SocialPostCard({
   post, 
   currentUser, 
   index, 
-  onOpenComments 
+  onOpenComments,
+  onEdit,
+  onRefresh
 }: { 
   post: SocialPost; 
   currentUser: any; 
   index: number;
   onOpenComments: () => void;
+  onEdit: () => void;
+  onRefresh: () => void;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -167,6 +182,9 @@ function SocialPostCard({
   const hasLiked = post.social_likes.some((like) => like.user_id === currentUser?.id);
   const [optimisticLike, setOptimisticLike] = useState(hasLiked);
   const [likeCount, setLikeCount] = useState(post.social_likes.length);
+  const [showMenu, setShowMenu] = useState(false);
+
+  const isAuthor = currentUser?.id === post.user_id;
 
   const handleToggleLike = async () => {
     if (!currentUser) {
@@ -189,6 +207,18 @@ function SocialPostCard({
       setOptimisticLike(!isLiking);
       setLikeCount((prev) => (isLiking ? prev - 1 : prev + 1));
       toast.error("Failed to update like");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this post?")) return;
+    try {
+      const { error } = await supabase.from("social_posts").delete().eq("id", post.id);
+      if (error) throw error;
+      toast.success("Post deleted");
+      onRefresh();
+    } catch (err) {
+      toast.error("Failed to delete post");
     }
   };
 
@@ -222,9 +252,38 @@ function SocialPostCard({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</span>
-          <button className="p-1 text-muted-foreground transition-colors hover:text-foreground active:scale-95">
-            <MoreVertical size={16} />
-          </button>
+          
+          {/* Author Dropdown Menu */}
+          {isAuthor && (
+            <div className="relative">
+              <button 
+                onClick={() => setShowMenu(!showMenu)} 
+                className="p-1 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
+              >
+                <MoreVertical size={16} />
+              </button>
+              
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-36 rounded-xl border border-border bg-card shadow-lg p-1.5 z-20 animate-scale-in origin-top-right">
+                    <button 
+                      onClick={() => { setShowMenu(false); onEdit(); }} 
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors text-foreground"
+                    >
+                      <Pencil size={14} /> Edit Post
+                    </button>
+                    <button 
+                      onClick={() => { setShowMenu(false); handleDelete(); }} 
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10 rounded-md transition-colors mt-0.5"
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -346,11 +405,10 @@ function SocialPostCard({
   );
 }
 
-// --- NEW COMPONENT FOR INDIVIDUAL COMMENTS ---
+// --- COMPONENT FOR INDIVIDUAL COMMENTS ---
 function CommentRow({ comment, currentUser }: { comment: any; currentUser: any }) {
   const queryClient = useQueryClient();
   
-  // Check if current user has liked this specific comment
   const hasLiked = comment.social_comment_likes?.some((like: any) => like.user_id === currentUser?.id);
   const [optimisticLike, setOptimisticLike] = useState(hasLiked);
   const [likeCount, setLikeCount] = useState(comment.social_comment_likes?.length || 0);
@@ -402,7 +460,6 @@ function CommentRow({ comment, currentUser }: { comment: any; currentUser: any }
           {comment.body}
         </p>
       </div>
-      {/* Small Heart Icon for the Comment */}
       <div className="flex flex-col items-center justify-start pt-1 pl-2">
         <button 
           onClick={handleToggleLike} 
@@ -435,7 +492,6 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
     queryKey: ["comments", postId],
     enabled: isOpen && !!postId,
     queryFn: async () => {
-      // Added `social_comment_likes (user_id)` to the fetch query
       const { data, error } = await supabase
         .from("social_comments")
         .select(`
