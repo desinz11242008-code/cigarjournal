@@ -148,11 +148,11 @@ export function EditPostModal({
               </div>
             </div>
           ) : (
-            /* STAGE 2: Full Width Square Preview Flow */
+            /* STAGE 2: Full Square View */
             <div className="space-y-0 flex-1">
-              {/* Changed aspect ratio to full aspect-square so the entire image is perfectly visible */}
+              {/* Swapped object-cover for object-contain to render unclipped image borders */}
               <div className="relative aspect-square w-full shrink-0 overflow-hidden border-b border-border bg-black group shadow-md">
-                {croppedImage && <img src={croppedImage} alt="Post" className="h-full w-full object-cover" />}
+                {croppedImage && <img src={croppedImage} alt="Post" className="h-full w-full object-contain" />}
                 <button 
                   onClick={() => setStage("upload")}
                   className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[1px]"
@@ -162,7 +162,7 @@ export function EditPostModal({
                 </button>
               </div>
               
-              {/* Caption Textarea below the square banner */}
+              {/* Caption Textarea */}
               <div className="p-5 flex-1 flex flex-col">
                 <textarea
                   value={caption}
@@ -178,7 +178,7 @@ export function EditPostModal({
         <div className="p-5 border-t border-border bg-card/50">
           {stage === "upload" ? (
             <div className="flex gap-3">
-              <button onClick={() => { setStage("caption"); setImageSrc(null); }} className="w-1/3 py-3.5 rounded-xl bg-muted text-foreground font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98]">
+              <button onClick={() => { setStage("caption"); setImageSrc(null); }} className="w-1/3 py-3.5 rounded-xl bg-muted text-foreground font-bold text Red flex items-center justify-center gap-2 transition-transform active:scale-[0.98]">
                   <ArrowLeft strokeWidth={2.5} size={16}/> Cancel
               </button>
               <button 

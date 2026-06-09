@@ -133,11 +133,11 @@ export function CreatePostModal({
               </div>
             </div>
           ) : (
-            /* STAGE 2: Full Width Square Preview Flow */
+            /* STAGE 2: Full Square View */
             <div className="space-y-0 flex-1">
-              {/* Changed aspect ratio to full aspect-square so the entire image is perfectly visible */}
+              {/* Changed object-cover to object-contain so that the square preview shows 100% of the image elements */}
               <div className="relative aspect-square w-full shrink-0 overflow-hidden border-b border-border bg-black group shadow-md">
-                <img src={croppedImage!} alt="Ready to post" className="h-full w-full object-cover" />
+                <img src={croppedImage!} alt="Ready to post" className="h-full w-full object-contain" />
                 <button 
                   onClick={() => setStage("upload")}
                   className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[1px]"
@@ -147,7 +147,7 @@ export function CreatePostModal({
                 </button>
               </div>
 
-              {/* Caption Textarea below the square banner */}
+              {/* Caption Textarea */}
               <div className="p-5 flex-1 flex flex-col">
                 <textarea
                   value={caption}
