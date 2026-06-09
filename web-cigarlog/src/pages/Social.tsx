@@ -183,6 +183,8 @@ function SocialPostCard({
   const [optimisticLike, setOptimisticLike] = useState(hasLiked);
   const [likeCount, setLikeCount] = useState(post.social_likes.length);
   const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isAuthor = currentUser?.id === post.user_id;
 
@@ -211,14 +213,16 @@ function SocialPostCard({
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this post?")) return;
     try {
+      setIsDeleting(true);
       const { error } = await supabase.from("social_posts").delete().eq("id", post.id);
       if (error) throw error;
       toast.success("Post deleted");
+      setShowDeleteConfirm(false);
       onRefresh();
     } catch (err) {
       toast.error("Failed to delete post");
+      setIsDeleting(false);
     }
   };
 
@@ -229,179 +233,218 @@ function SocialPostCard({
   }) : "";
 
   return (
-    <article 
-      className="animate-fade-up rounded-2xl border border-border bg-card overflow-hidden transition-all hover:border-accent/30"
-      style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
-    >
-      <div className="flex items-center justify-between p-4 pb-3">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 overflow-hidden rounded-full border border-border bg-muted">
-            {post.profiles?.avatar_url ? (
-              <img src={post.profiles.avatar_url} alt="avatar" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs font-bold text-muted-foreground">
-                {(post.profiles?.name || "A")[0].toUpperCase()}
+    <>
+      <article 
+        className="animate-fade-up rounded-2xl border border-border bg-card overflow-hidden transition-all hover:border-accent/30"
+        style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
+      >
+        <div className="flex items-center justify-between p-4 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 overflow-hidden rounded-full border border-border bg-muted">
+              {post.profiles?.avatar_url ? (
+                <img src={post.profiles.avatar_url} alt="avatar" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs font-bold text-muted-foreground">
+                  {(post.profiles?.name || "A")[0].toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="text-[14px] font-semibold leading-tight text-foreground">
+                {post.profiles?.name || "Anonymous"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</span>
+            
+            {/* Author Dropdown Menu */}
+            {isAuthor && (
+              <div className="relative">
+                <button 
+                  onClick={() => setShowMenu(!showMenu)} 
+                  className="p-1 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
+                >
+                  <MoreVertical size={16} />
+                </button>
+                
+                {showMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1 w-36 rounded-xl border border-border bg-card shadow-lg p-1.5 z-20 animate-scale-in origin-top-right">
+                      <button 
+                        onClick={() => { setShowMenu(false); onEdit(); }} 
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors text-foreground"
+                      >
+                        <Pencil size={14} /> Edit Post
+                      </button>
+                      <button 
+                        onClick={() => { setShowMenu(false); setShowDeleteConfirm(true); }} 
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10 rounded-md transition-colors mt-0.5"
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
-          <div>
-            <p className="text-[14px] font-semibold leading-tight text-foreground">
-              {post.profiles?.name || "Anonymous"}
-            </p>
-          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</span>
-          
-          {/* Author Dropdown Menu */}
-          {isAuthor && (
-            <div className="relative">
-              <button 
-                onClick={() => setShowMenu(!showMenu)} 
-                className="p-1 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
-              >
-                <MoreVertical size={16} />
-              </button>
-              
-              {showMenu && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-36 rounded-xl border border-border bg-card shadow-lg p-1.5 z-20 animate-scale-in origin-top-right">
-                    <button 
-                      onClick={() => { setShowMenu(false); onEdit(); }} 
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors text-foreground"
-                    >
-                      <Pencil size={14} /> Edit Post
-                    </button>
-                    <button 
-                      onClick={() => { setShowMenu(false); handleDelete(); }} 
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10 rounded-md transition-colors mt-0.5"
-                    >
-                      <Trash2 size={14} /> Delete
-                    </button>
+
+        {post.image_url && (
+          <div className="relative aspect-square w-full bg-black/20">
+            <img src={post.image_url} alt="Post" className="absolute inset-0 h-full w-full object-cover" />
+          </div>
+        )}
+
+        {post.cigars && (
+          <div className={`px-4 ${post.image_url ? "mt-4" : ""}`}>
+            <div 
+              onClick={() => navigate(`/entry/${post.cigars.id}`)}
+              className="group w-full cursor-pointer overflow-hidden rounded-2xl border border-border bg-background/50 text-left transition-all duration-200 active:scale-[0.985] hover:border-accent/40"
+            >
+              <div className="flex h-[130px]">
+                <div className="relative h-full w-[110px] shrink-0 overflow-hidden bg-[hsl(var(--field))]">
+                  {post.cigars.photos && post.cigars.photos.length > 0 ? (
+                    <img
+                      src={post.cigars.photos[0]}
+                      alt={post.cigars.cigar_name || "Cigar"}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <div className="ember-glow flex h-12 w-12 items-center justify-center rounded-full">
+                        <span className="text-2xl">🚬</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex min-w-0 flex-1 flex-col justify-between p-3.5">
+                  <div className="min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="truncate text-[15px] font-semibold text-foreground">
+                        {post.cigars.cigar_name || post.cigars.cigarName || post.cigars.name || "Untitled Cigar"}
+                      </h3>
+                      <span className="shrink-0 text-[11px] font-medium text-muted-foreground mt-0.5">
+                        {formattedCigarDate}
+                      </span>
+                    </div>
+
+                    <div className="mt-0.5 flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        {post.cigars.brand && (
+                          <p className="truncate text-[13px] text-accent/90">{post.cigars.brand}</p>
+                        )}
+                        {post.cigars.vitola && (
+                          <p className="truncate text-xs text-muted-foreground mt-0.5">
+                            {post.cigars.vitola}
+                          </p>
+                        )}
+                      </div>
+
+                      {post.cigars.rating > 0 && (
+                        <div className="flex shrink-0 items-baseline gap-0.5 rounded-full bg-accent/10 px-2 py-0.5 mt-0.5 border border-accent/20">
+                          <span className="text-sm font-bold text-accent">
+                            {Number(post.cigars.rating).toFixed(1)}
+                          </span>
+                          <span className="text-[10px] font-medium text-accent/70">
+                            /10
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </>
-              )}
+
+                  <div className="flex items-end justify-between gap-2 mt-auto pt-2">
+                    <div className="flex flex-col gap-1.5">
+                      <StrengthBolts strength={post.cigars.strength} size={12} />
+                      {post.cigars.location && (
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <MapPin size={11} className="shrink-0" />
+                          <span className="max-w-[90px] truncate">{post.cigars.location}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="p-4 pt-3">
+          <div className="flex items-center gap-4">
+            <button onClick={handleToggleLike} className="transition-transform active:scale-75">
+              <Heart 
+                size={22} 
+                className={`transition-colors ${optimisticLike ? "fill-accent text-accent" : "text-muted-foreground hover:text-foreground"}`} 
+              />
+            </button>
+            <button onClick={onOpenComments} className="transition-transform active:scale-75 text-muted-foreground hover:text-foreground">
+              <MessageCircle size={22} />
+            </button>
+          </div>
+          
+          {likeCount > 0 && (
+            <p className="mt-2.5 text-[13px] font-semibold text-foreground">
+              {likeCount} {likeCount === 1 ? "like" : "likes"}
+            </p>
+          )}
+
+          {post.caption && (
+            <div className={`text-[13px] text-foreground ${likeCount > 0 ? "mt-1" : "mt-2.5"}`}>
+              <span className="mr-1.5 font-semibold">{post.profiles?.name || "Anonymous"}</span>
+              <span className="whitespace-pre-wrap text-muted-foreground">{post.caption}</span>
             </div>
           )}
-        </div>
-      </div>
 
-      {post.image_url && (
-        <div className="relative aspect-square w-full bg-black/20">
-          <img src={post.image_url} alt="Post" className="absolute inset-0 h-full w-full object-cover" />
+          {post.social_comments && post.social_comments.length > 0 && post.social_comments[0]?.count > 0 && (
+            <button onClick={onOpenComments} className="mt-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+              View all {post.social_comments[0].count} comments
+            </button>
+          )}
         </div>
-      )}
+      </article>
 
-      {post.cigars && (
-        <div className={`px-4 ${post.image_url ? "mt-4" : ""}`}>
+      {/* IN-APP DELETE CONFIRMATION MODAL */}
+      {showDeleteConfirm && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+          onClick={() => !isDeleting && setShowDeleteConfirm(false)}
+        >
           <div 
-            onClick={() => navigate(`/entry/${post.cigars.id}`)}
-            className="group w-full cursor-pointer overflow-hidden rounded-2xl border border-border bg-background/50 text-left transition-all duration-200 active:scale-[0.985] hover:border-accent/40"
+            className="animate-scale-in w-full max-w-[320px] rounded-3xl border border-border bg-card p-6 shadow-2xl text-center"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex h-[130px]">
-              <div className="relative h-full w-[110px] shrink-0 overflow-hidden bg-[hsl(var(--field))]">
-                {post.cigars.photos && post.cigars.photos.length > 0 ? (
-                  <img
-                    src={post.cigars.photos[0]}
-                    alt={post.cigars.cigar_name || "Cigar"}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <div className="ember-glow flex h-12 w-12 items-center justify-center rounded-full">
-                      <span className="text-2xl">🚬</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex min-w-0 flex-1 flex-col justify-between p-3.5">
-                <div className="min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="truncate text-[15px] font-semibold text-foreground">
-                      {post.cigars.cigar_name || post.cigars.cigarName || post.cigars.name || "Untitled Cigar"}
-                    </h3>
-                    <span className="shrink-0 text-[11px] font-medium text-muted-foreground mt-0.5">
-                      {formattedCigarDate}
-                    </span>
-                  </div>
-
-                  <div className="mt-0.5 flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      {post.cigars.brand && (
-                        <p className="truncate text-[13px] text-accent/90">{post.cigars.brand}</p>
-                      )}
-                      {post.cigars.vitola && (
-                        <p className="truncate text-xs text-muted-foreground mt-0.5">
-                          {post.cigars.vitola}
-                        </p>
-                      )}
-                    </div>
-
-                    {post.cigars.rating > 0 && (
-                      <div className="flex shrink-0 items-baseline gap-0.5 rounded-full bg-accent/10 px-2 py-0.5 mt-0.5 border border-accent/20">
-                        <span className="text-sm font-bold text-accent">
-                          {Number(post.cigars.rating).toFixed(1)}
-                        </span>
-                        <span className="text-[10px] font-medium text-accent/70">
-                          /10
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-end justify-between gap-2 mt-auto pt-2">
-                  <div className="flex flex-col gap-1.5">
-                    <StrengthBolts strength={post.cigars.strength} size={12} />
-                    {post.cigars.location && (
-                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <MapPin size={11} className="shrink-0" />
-                        <span className="max-w-[90px] truncate">{post.cigars.location}</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10">
+              <Trash2 className="text-red-500" size={28} />
+            </div>
+            <h3 className="mb-2 text-xl font-bold text-foreground">Delete Post?</h3>
+            <p className="mb-6 text-sm text-muted-foreground">
+              This action cannot be undone. This post will be permanently removed from the social feed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl bg-muted py-3.5 text-[15px] font-bold text-foreground transition-transform active:scale-95 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl bg-red-500 py-3.5 text-[15px] font-bold text-white transition-transform active:scale-95 flex justify-center items-center gap-2 disabled:opacity-50 shadow-md shadow-red-500/20"
+              >
+                {isDeleting ? <Loader2 size={18} className="animate-spin" /> : "Delete"}
+              </button>
             </div>
           </div>
         </div>
       )}
-
-      <div className="p-4 pt-3">
-        <div className="flex items-center gap-4">
-          <button onClick={handleToggleLike} className="transition-transform active:scale-75">
-            <Heart 
-              size={22} 
-              className={`transition-colors ${optimisticLike ? "fill-accent text-accent" : "text-muted-foreground hover:text-foreground"}`} 
-            />
-          </button>
-          <button onClick={onOpenComments} className="transition-transform active:scale-75 text-muted-foreground hover:text-foreground">
-            <MessageCircle size={22} />
-          </button>
-        </div>
-        
-        {likeCount > 0 && (
-          <p className="mt-2.5 text-[13px] font-semibold text-foreground">
-            {likeCount} {likeCount === 1 ? "like" : "likes"}
-          </p>
-        )}
-
-        {post.caption && (
-          <div className={`text-[13px] text-foreground ${likeCount > 0 ? "mt-1" : "mt-2.5"}`}>
-            <span className="mr-1.5 font-semibold">{post.profiles?.name || "Anonymous"}</span>
-            <span className="whitespace-pre-wrap text-muted-foreground">{post.caption}</span>
-          </div>
-        )}
-
-        {post.social_comments && post.social_comments.length > 0 && post.social_comments[0]?.count > 0 && (
-          <button onClick={onOpenComments} className="mt-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
-            View all {post.social_comments[0].count} comments
-          </button>
-        )}
-      </div>
-    </article>
+    </>
   );
 }
 
