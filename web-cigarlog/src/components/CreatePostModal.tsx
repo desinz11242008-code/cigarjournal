@@ -20,11 +20,11 @@ export function CreatePostModal({
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 'upload' = picking/cropping, 'caption' = writing caption/confirming
   const [stage, setStage] = useState<"upload" | "caption">("upload");
   const [caption, setCaption] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [croppedImage, setCroppedImage] = useState<string | null>(null); // New state to hold confirmed image
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
@@ -45,8 +45,16 @@ export function CreatePostModal({
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
+  const confirmImage = async () => {
+    const croppedBlob = await getCroppedImg(imageSrc!, croppedAreaPixels);
+    const croppedUrl = URL.createObjectURL(croppedBlob!);
+    setCroppedImage(croppedUrl);
+    setStage("caption");
+  };
+
   const handleClose = () => {
     setImageSrc(null);
+    setCroppedImage(null);
     setCaption("");
     setZoom(1);
     setStage("upload");
@@ -55,14 +63,15 @@ export function CreatePostModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!imageSrc || !croppedAreaPixels) return;
+    if (!croppedImage || !caption.trim()) return;
 
     try {
       setIsSubmitting(true);
-      const croppedImageBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      const response = await fetch(croppedImage);
+      const blob = await response.blob();
       const filename = `${user?.id}-${uuidv4()}.jpg`;
       
-      await supabase.storage.from("posts").upload(filename, croppedImageBlob!, { contentType: "image/jpeg" });
+      await supabase.storage.from("posts").upload(filename, blob, { contentType: "image/jpeg" });
       const { data } = supabase.storage.from("posts").getPublicUrl(filename);
 
       await supabase.from("social_posts").insert({
@@ -87,15 +96,11 @@ export function CreatePostModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm" onClick={handleClose}>
       <div className="w-full max-w-lg rounded-3xl border border-border bg-card shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="font-bold text-lg">
-            {stage === "upload" ? "Select & Crop Image" : "Add Caption"}
-          </h3>
+          <h3 className="font-bold text-lg">{stage === "upload" ? "Select & Crop" : "Add Caption"}</h3>
           <button onClick={handleClose}><X size={18}/></button>
         </div>
 
-        {/* Content */}
         <div className="p-4 flex flex-col gap-4">
           {stage === "upload" ? (
             <div className="relative aspect-square w-full h-80 rounded-xl border-2 border-dashed border-border overflow-hidden bg-muted/50">
@@ -113,20 +118,25 @@ export function CreatePostModal({
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
             </div>
           ) : (
-            <textarea
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="What are you smoking? Tell the community..."
-              className="w-full h-80 p-4 rounded-xl bg-background border border-border resize-none text-sm outline-none focus:border-accent"
-            />
+            // Caption Stage UI
+            <div className="flex flex-col gap-4">
+              <div className="aspect-square w-full h-64 rounded-xl overflow-hidden bg-muted">
+                <img src={croppedImage!} alt="Confirmed" className="w-full h-full object-cover" />
+              </div>
+              <textarea
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="Write a caption..."
+                className="w-full h-32 p-4 rounded-xl bg-background border border-border resize-none text-sm outline-none focus:border-accent"
+              />
+            </div>
           )}
         </div>
 
-        {/* Dynamic Buttons */}
         <div className="p-4 border-t border-border">
           {stage === "upload" ? (
             <button 
-              onClick={() => setStage("caption")}
+              onClick={confirmImage}
               disabled={!imageSrc}
               className="w-full py-4 rounded-xl bg-accent text-accent-foreground font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
             >
