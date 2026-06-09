@@ -29,13 +29,12 @@ export function EditPostModal({
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
-  // Initialize data when the modal opens with a specific post
   useEffect(() => {
     if (isOpen && post) {
       setCaption(post.caption || "");
       setCroppedImage(post.image_url);
       setStage("caption");
-      setImageSrc(null); // Reset new image picker
+      setImageSrc(null);
     }
   }, [isOpen, post]);
 
@@ -77,10 +76,8 @@ export function EditPostModal({
 
     try {
       setIsSubmitting(true);
-      
       let finalImageUrl = post.image_url;
 
-      // If the user picked and cropped a NEW image
       if (imageSrc && croppedImage && croppedImage !== post.image_url) {
         const response = await fetch(croppedImage);
         const blob = await response.blob();
@@ -112,7 +109,7 @@ export function EditPostModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-0 sm:p-4 backdrop-blur-sm" onClick={handleClose}>
-      <div className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-3xl border-0 sm:border border-border bg-card shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full h-full sm:h-auto sm:max-h-[95vh] sm:max-w-lg sm:rounded-3xl border-0 sm:border border-border bg-card shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
@@ -153,13 +150,14 @@ export function EditPostModal({
           ) : (
             /* STAGE 2: Caption & Image Preview */
             <div className="p-5 flex flex-col items-center gap-5">
-              {/* Confirmed Square Image Preview on Top - Now Larger */}
-              <div className="relative aspect-square w-56 sm:w-64 shrink-0 overflow-hidden rounded-xl border border-border bg-black shadow-md group">
+              {/* Confirmed Square Image Preview on Top - Now Big & Clear */}
+              <div className="relative aspect-square w-72 h-72 sm:w-80 sm:h-80 shrink-0 overflow-hidden rounded-xl border border-border bg-black shadow-md group">
                 {croppedImage && <img src={croppedImage} alt="Post" className="h-full w-full object-cover" />}
                 <button 
                   onClick={() => setStage("upload")}
-                  className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100 text-white font-medium text-sm backdrop-blur-sm"
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100 text-white font-bold text-sm backdrop-blur-sm gap-2"
                 >
+                  <ImageIcon size={22} />
                   Change Image
                 </button>
               </div>
@@ -169,7 +167,7 @@ export function EditPostModal({
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 placeholder="Write a caption..."
-                className="w-full h-32 sm:h-40 p-4 rounded-xl bg-background border border-border resize-none text-[15px] outline-none transition-colors focus:border-accent shadow-sm"
+                className="w-full h-32 sm:h-36 p-4 rounded-xl bg-background border border-border resize-none text-[15px] outline-none transition-colors focus:border-accent shadow-sm"
               />
             </div>
           )}
