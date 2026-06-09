@@ -1,6 +1,7 @@
-import { Camera, Coffee, ImagePlus, Leaf, Text as TextIcon, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { Camera, Coffee, ImagePlus, Leaf, Text as TextIcon, X, Check, ArrowLeft, Loader2 } from "lucide-react";
+import { useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import Cropper from "react-easy-crop";
 
 import { Card, CardHeader } from "@/components/Card";
 import {
@@ -19,6 +20,7 @@ import {
   ThirdNotes,
   createEmptyEntry,
 } from "@/types/cigar";
+import { getCroppedImg } from "@/utils/cropUtils";
 
 const AddEditEntry = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,8 +35,16 @@ const AddEditEntry = () => {
   const [ratingText, setRatingText] = useState(
     existing && existing.rating > 0 ? String(existing.rating) : "",
   );
+  
+  // Image & Cropping State
   const [photos, setPhotos] = useState<string[]>(draft.photos);
   const fileRef = useRef<HTMLInputElement>(null);
+  
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [isCropping, setIsCropping] = useState(false);
 
   const set = <K extends keyof CigarEntry>(key: K, val: CigarEntry[K]) =>
     setDraft((d) => ({ ...d, [key]: val }));
@@ -45,26 +55,40 @@ const AddEditEntry = () => {
     val: ThirdNotes[keyof ThirdNotes],
   ) => setDraft((d) => ({ ...d, [key]: { ...d[key], [field]: val } }));
 
-  const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileList = Array.from(e.target.files ?? []);
+  // Triggers when a user selects an image from their camera roll
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        setCropImageSrc(reader.result as string);
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+      };
+      reader.readAsDataURL(file);
+    }
     if (fileRef.current) fileRef.current.value = "";
-    if (fileList.length === 0) return;
+  };
 
-    const readFile = (file: File) =>
-      new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-
-    Promise.all(fileList.map(readFile))
-      .then((results) => {
-        setPhotos((prev) => [...prev, ...results]);
-      })
-      .catch((err) => {
-        console.warn("Failed to read photo", err);
-      });
+  // Finalizes the crop and adds it to the entry
+  const confirmCrop = async () => {
+    if (!cropImageSrc || !croppedAreaPixels) return;
+    try {
+      setIsCropping(true);
+      const croppedBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels);
+      
+      // Convert Blob to Data URL to preview and save seamlessly
+      const reader = new FileReader();
+      reader.readAsDataURL(croppedBlob!);
+      reader.onloadend = () => {
+        setPhotos((prev) => [...prev, reader.result as string]);
+        setCropImageSrc(null);
+        setIsCropping(false);
+      };
+    } catch (e) {
+      console.error(e);
+      setIsCropping(false);
+    }
   };
 
   const removePhoto = (idx: number) => {
@@ -82,7 +106,7 @@ const AddEditEntry = () => {
     });
 
     if (existing) {
-      // Steps back into the original detail page view, keeping your history perfectly clean
+      // Steps back into the original detail page view
       navigate(-1);
     } else {
       navigate("/");
@@ -116,242 +140,292 @@ const AddEditEntry = () => {
   const canSave = draft.cigarName.trim().length > 0 && !!user;
 
   return (
-    <div className="relative min-h-full pb-32">
-      {/* Top bar */}
-      <div className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-        <div className="safe-top mx-auto flex w-full max-w-lg items-center justify-between px-4 py-2.5">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-[15px] font-medium text-muted-foreground transition active:scale-95"
-          >
-            Cancel
-          </button>
-          <span className="text-[15px] font-semibold text-foreground">
-            {existing ? "Edit Entry" : "New Entry"}
-          </span>
-          <button
-            onClick={save}
-            disabled={!canSave}
-            className="text-[15px] font-semibold text-accent transition active:scale-95 disabled:opacity-30"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-
-      <div className="mx-auto w-full max-w-lg space-y-5 px-4 pt-5">
-        {/* Photos */}
-        <div>
-          {photos.length === 0 ? (
+    <>
+      <div className="relative min-h-full pb-32">
+        {/* Top bar */}
+        <div className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+          <div className="safe-top mx-auto flex w-full max-w-lg items-center justify-between px-4 py-2.5">
             <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="relative flex h-44 w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-[hsl(var(--field))] transition active:scale-[0.99]"
+              onClick={() => navigate(-1)}
+              className="text-[15px] font-medium text-muted-foreground transition active:scale-95"
             >
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <Camera size={26} />
-                <span className="text-sm">Add photos</span>
-              </div>
+              Cancel
             </button>
-          ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                {photos.map((p, i) => (
-                  <div
-                    key={i}
-                    className="relative aspect-square overflow-hidden rounded-xl border border-border"
-                  >
-                    <img
-                      src={p}
-                      alt={`cigar ${i + 1}`}
-                      className="h-full w-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removePhoto(i)}
-                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition active:scale-90"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-[hsl(var(--field))] transition active:scale-[0.97]"
-                >
-                  <ImagePlus size={22} className="text-muted-foreground" />
-                </button>
-              </div>
-            </div>
-          )}
+            <span className="text-[15px] font-semibold text-foreground">
+              {existing ? "Edit Cigar" : "Add Cigar"}
+            </span>
+            <button
+              onClick={save}
+              disabled={!canSave}
+              className="text-[15px] font-semibold text-accent transition active:scale-95 disabled:opacity-30"
+            >
+              Save
+            </button>
+          </div>
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handlePhotos}
-          className="hidden"
-        />
 
-        {/* Basics */}
-        <Card>
-          <CardHeader title="The Cigar" icon={Leaf} />
-          <div className="mt-4 space-y-4">
-            <TextField
-              label="Name"
-              value={draft.cigarName}
-              onChange={(v) => set("cigarName", v)}
-              placeholder="e.g. Montecristo No. 2"
-            />
-            <TextField
-              label="Brand"
-              value={draft.brand}
-              onChange={(v) => set("brand", v)}
-              placeholder="e.g. Montecristo"
-            />
-            <TextField
-              label="Vitola"
-              value={draft.vitola}
-              onChange={(v) => set("vitola", v)}
-              placeholder="e.g. Torpedo"
-            />
-            <div className="grid grid-cols-2 gap-3">
+        <div className="mx-auto w-full max-w-lg space-y-5 px-4 pt-5">
+          {/* Photos */}
+          <div>
+            {photos.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="relative flex h-44 w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-[hsl(var(--field))] transition active:scale-[0.99]"
+              >
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <Camera size={26} />
+                  <span className="text-sm">Add photos</span>
+                </div>
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  {photos.map((p, i) => (
+                    <div
+                      key={i}
+                      className="relative aspect-square overflow-hidden rounded-xl border border-border"
+                    >
+                      <img
+                        src={p}
+                        alt={`cigar ${i + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(i)}
+                        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition active:scale-90"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-[hsl(var(--field))] transition active:scale-[0.97]"
+                  >
+                    <ImagePlus size={22} className="text-muted-foreground" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+
+          {/* Basics */}
+          <Card>
+            <CardHeader title="The Cigar" icon={Leaf} />
+            <div className="mt-4 space-y-4">
               <TextField
-                label="Length"
-                value={draft.length}
-                onChange={(v) => set("length", v)}
-                placeholder={'e.g. 6.1" / 15.5cm'}
+                label="Name"
+                value={draft.cigarName}
+                onChange={(v) => set("cigarName", v)}
+                placeholder="e.g. Montecristo No. 2"
               />
               <TextField
-                label="Ring Gauge"
-                value={draft.ringGauge}
-                onChange={(v) => set("ringGauge", v)}
-                placeholder="e.g. 52"
+                label="Brand"
+                value={draft.brand}
+                onChange={(v) => set("brand", v)}
+                placeholder="e.g. Montecristo"
+              />
+              <TextField
+                label="Vitola"
+                value={draft.vitola}
+                onChange={(v) => set("vitola", v)}
+                placeholder="e.g. Torpedo"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <TextField
+                  label="Length"
+                  value={draft.length}
+                  onChange={(v) => set("length", v)}
+                  placeholder={'e.g. 6.1" / 15.5cm'}
+                />
+                <TextField
+                  label="Ring Gauge"
+                  value={draft.ringGauge}
+                  onChange={(v) => set("ringGauge", v)}
+                  placeholder="e.g. 52"
+                  inputMode="numeric"
+                />
+              </div>
+              <TextField
+                label="Humidity"
+                value={draft.humidity}
+                onChange={(v) => set("humidity", v)}
+                placeholder="e.g. 65%"
+              />
+            </div>
+          </Card>
+
+          {/* Rating & strength */}
+          <Card>
+            <CardHeader title="RATING" icon={TextIcon} />
+            <div className="mt-4 space-y-5">
+              <FieldGroup label="Rating">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={ratingText}
+                    onChange={(e) => handleRatingChange(e.target.value)}
+                    onBlur={handleRatingBlur}
+                    placeholder=""
+                    className="h-12 w-16 rounded-xl border border-border bg-[hsl(var(--field))] text-center text-lg font-bold text-accent outline-none transition focus:border-accent"
+                  />
+                  <span className="text-lg font-bold text-muted-foreground">
+                    / 10
+                  </span>
+                </div>
+              </FieldGroup>
+
+              <FieldGroup label="Strength">
+                <StrengthSlider
+                  value={draft.strength}
+                  onChange={(v) => set("strength", v)}
+                />
+              </FieldGroup>
+            </div>
+          </Card>
+
+          {/* Construction */}
+          <Card>
+            <CardHeader title="Construction" icon={Leaf} />
+            <div className="mt-4 space-y-4">
+              <TextField
+                label="Wrapper"
+                value={draft.wrapper}
+                onChange={(v) => set("wrapper", v)}
+                placeholder="e.g. Connecticut Shade"
+              />
+              <TextField
+                label="Binder"
+                value={draft.binder}
+                onChange={(v) => set("binder", v)}
+                placeholder="e.g. Dominican"
+              />
+              <TextField
+                label="Filler"
+                value={draft.filler}
+                onChange={(v) => set("filler", v)}
+                placeholder="e.g. Dominican, Nicaraguan"
+              />
+            </div>
+          </Card>
+
+          {/* Tasting journal */}
+          <Card>
+            <CardHeader title="Tasting Journal" icon={TextIcon} />
+            <div className="mt-4 space-y-6">
+              <ThirdEditor
+                title="First Third"
+                numeral="1"
+                data={draft.firstThird}
+                onChange={(f, v) => setThird("firstThird", f, v)}
+              />
+              <div className="h-px bg-border/60" />
+              <ThirdEditor
+                title="Second Third"
+                numeral="2"
+                data={draft.secondThird}
+                onChange={(f, v) => setThird("secondThird", f, v)}
+              />
+              <div className="h-px bg-border/60" />
+              <ThirdEditor
+                title="Final Third"
+                numeral="3"
+                data={draft.finalThird}
+                onChange={(f, v) => setThird("finalThird", f, v)}
+              />
+            </div>
+          </Card>
+
+          {/* Session */}
+          <Card>
+            <CardHeader title="Session" icon={TextIcon} />
+            <div className="mt-4 space-y-4">
+              <TextField
+                label="Location"
+                value={draft.location}
+                onChange={(v) => set("location", v)}
+                placeholder="e.g. Backyard patio"
+              />
+              <TextField
+                label="Paired with"
+                value={draft.pairedWith}
+                onChange={(v) => set("pairedWith", v)}
+                placeholder="e.g. Light roast coffee"
+              />
+              <TextField
+                label="Duration (minutes)"
+                value={draft.durationMinutes > 0 ? String(draft.durationMinutes) : ""}
+                onChange={(v) =>
+                  set("durationMinutes", Math.max(0, parseInt(v) || 0))
+                }
+                placeholder="e.g. 75"
                 inputMode="numeric"
               />
             </div>
-            <TextField
-              label="Humidity"
-              value={draft.humidity}
-              onChange={(v) => set("humidity", v)}
-              placeholder="e.g. 65%"
-            />
-          </div>
-        </Card>
-
-        {/* Rating & strength */}
-        <Card>
-          <CardHeader title="RATING" icon={TextIcon} />
-          <div className="mt-4 space-y-5">
-            <FieldGroup label="Rating">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={ratingText}
-                  onChange={(e) => handleRatingChange(e.target.value)}
-                  onBlur={handleRatingBlur}
-                  placeholder=""
-                  className="h-12 w-16 rounded-xl border border-border bg-[hsl(var(--field))] text-center text-lg font-bold text-accent outline-none transition focus:border-accent"
-                />
-                <span className="text-lg font-bold text-muted-foreground">
-                  / 10
-                </span>
-              </div>
-            </FieldGroup>
-
-            <FieldGroup label="Strength">
-              <StrengthSlider
-                value={draft.strength}
-                onChange={(v) => set("strength", v)}
-              />
-            </FieldGroup>
-          </div>
-        </Card>
-
-        {/* Construction */}
-        <Card>
-          <CardHeader title="Construction" icon={Leaf} />
-          <div className="mt-4 space-y-4">
-            <TextField
-              label="Wrapper"
-              value={draft.wrapper}
-              onChange={(v) => set("wrapper", v)}
-              placeholder="e.g. Connecticut Shade"
-            />
-            <TextField
-              label="Binder"
-              value={draft.binder}
-              onChange={(v) => set("binder", v)}
-              placeholder="e.g. Dominican"
-            />
-            <TextField
-              label="Filler"
-              value={draft.filler}
-              onChange={(v) => set("filler", v)}
-              placeholder="e.g. Dominican, Nicaraguan"
-            />
-          </div>
-        </Card>
-
-        {/* Tasting journal */}
-        <Card>
-          <CardHeader title="Tasting Journal" icon={TextIcon} />
-          <div className="mt-4 space-y-6">
-            <ThirdEditor
-              title="First Third"
-              numeral="1"
-              data={draft.firstThird}
-              onChange={(f, v) => setThird("firstThird", f, v)}
-            />
-            <div className="h-px bg-border/60" />
-            <ThirdEditor
-              title="Second Third"
-              numeral="2"
-              data={draft.secondThird}
-              onChange={(f, v) => setThird("secondThird", f, v)}
-            />
-            <div className="h-px bg-border/60" />
-            <ThirdEditor
-              title="Final Third"
-              numeral="3"
-              data={draft.finalThird}
-              onChange={(f, v) => setThird("finalThird", f, v)}
-            />
-          </div>
-        </Card>
-
-        {/* Session */}
-        <Card>
-          <CardHeader title="Session" icon={TextIcon} />
-          <div className="mt-4 space-y-4">
-            <TextField
-              label="Location"
-              value={draft.location}
-              onChange={(v) => set("location", v)}
-              placeholder="e.g. Backyard patio"
-            />
-            <TextField
-              label="Paired with"
-              value={draft.pairedWith}
-              onChange={(v) => set("pairedWith", v)}
-              placeholder="e.g. Light roast coffee"
-            />
-            <TextField
-              label="Duration (minutes)"
-              value={draft.durationMinutes > 0 ? String(draft.durationMinutes) : ""}
-              onChange={(v) =>
-                set("durationMinutes", Math.max(0, parseInt(v) || 0))
-              }
-              placeholder="e.g. 75"
-              inputMode="numeric"
-            />
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
-    </div>
+
+      {/* FULLSCREEN EDGE-TO-EDGE CROP MODAL */}
+      {cropImageSrc && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-0 sm:p-4 backdrop-blur-sm">
+          <div className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-3xl border-0 sm:border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+              <h3 className="font-bold text-lg">Crop Photo</h3>
+              <button onClick={() => setCropImageSrc(null)} className="p-1 rounded-full hover:bg-muted transition-colors"><X size={20}/></button>
+            </div>
+
+            {/* Edge-to-Edge Cropper */}
+            <div className="flex-1 overflow-y-auto flex flex-col bg-black">
+              <div className="relative aspect-square w-full overflow-hidden">
+                <Cropper
+                  image={cropImageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  onCropChange={setCrop}
+                  onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixels(croppedAreaPixels)}
+                  onZoomChange={setZoom}
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="p-4 sm:p-5 border-t border-border shrink-0 bg-card">
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setCropImageSrc(null)} 
+                  className="w-1/3 py-4 rounded-xl bg-muted text-foreground font-bold text-[15px] flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
+                >
+                  <ArrowLeft strokeWidth={2.5} size={18}/> Cancel
+                </button>
+                <button
+                  onClick={confirmCrop}
+                  disabled={isCropping}
+                  className="w-2/3 py-4 rounded-xl bg-accent text-accent-foreground font-bold text-[15px] flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-50 shadow-md"
+                >
+                  {isCropping ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2.5} size={18}/>}
+                  {isCropping ? "Cropping..." : "Confirm Crop"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
