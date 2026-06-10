@@ -1,14 +1,17 @@
-import { Heart, MessageCircle, MoreVertical, Loader2, X, Send, Plus, MapPin, Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Heart, MessageCircle, MoreVertical, Loader2, X, Send, Plus, MapPin, Pencil, Trash2, Image as ImageIcon, CornerDownRight, Check, ArrowLeft } from "lucide-react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Cropper from "react-easy-crop";
+import { v4 as uuidv4 } from "uuid";
 
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { StrengthBolts } from "@/components/Ratings";
 import { CreatePostModal } from "@/components/CreatePostModal";
 import { EditPostModal } from "@/components/EditPostModal";
+import { getCroppedImg } from "@/utils/cropUtils";
 
 type SocialPost = {
   id: string;
@@ -268,7 +271,6 @@ function SocialPostCard({
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</span>
             
-            {/* Author Dropdown Menu */}
             {isAuthor && (
               <div className="relative">
                 <button 
@@ -418,76 +420,29 @@ function SocialPostCard({
         </div>
       </article>
 
-      {/* IN-APP DELETE CONFIRMATION MODAL */}
       {showDeleteConfirm && (
-        <div 
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
-          onClick={() => !isDeleting && setShowDeleteConfirm(false)}
-        >
-          <div 
-            className="animate-scale-in w-full max-w-[320px] rounded-3xl border border-border bg-card p-6 shadow-2xl text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10">
-              <Trash2 className="text-red-500" size={28} />
-            </div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm" onClick={() => !isDeleting && setShowDeleteConfirm(false)}>
+          <div className="animate-scale-in w-full max-w-[320px] rounded-3xl border border-border bg-card p-6 shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10"><Trash2 className="text-red-500" size={28} /></div>
             <h3 className="mb-2 text-xl font-bold text-foreground">Delete Post?</h3>
-            <p className="mb-6 text-sm text-muted-foreground">
-              This action cannot be undone. This post will be permanently removed from the social feed.
-            </p>
+            <p className="mb-6 text-sm text-muted-foreground">This action cannot be undone. This post will be permanently removed.</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={isDeleting}
-                className="flex-1 rounded-xl bg-muted py-3.5 text-[15px] font-bold text-foreground transition-transform active:scale-95 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="flex-1 rounded-xl bg-red-500 py-3.5 text-[15px] font-bold text-white transition-transform active:scale-95 flex justify-center items-center gap-2 disabled:opacity-50 shadow-md shadow-red-500/20"
-              >
-                {isDeleting ? <Loader2 size={18} className="animate-spin" /> : "Delete"}
-              </button>
+              <button onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting} className="flex-1 rounded-xl bg-muted py-3.5 text-[15px] font-bold text-foreground">Cancel</button>
+              <button onClick={handleDelete} disabled={isDeleting} className="flex-1 rounded-xl bg-red-500 py-3.5 text-[15px] font-bold text-white flex justify-center items-center gap-2 shadow-md">{isDeleting ? <Loader2 size={18} className="animate-spin" /> : "Delete"}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* IN-APP JOURNAL EDIT ROUTING CONFIRMATION MODAL */}
       {showJournalEditConfirm && (
-        <div 
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
-          onClick={() => setShowJournalEditConfirm(false)}
-        >
-          <div 
-            className="animate-scale-in w-full max-w-[340px] rounded-3xl border border-border bg-card p-6 shadow-2xl text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10">
-              <span className="text-2xl">🚬</span>
-            </div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm" onClick={() => setShowJournalEditConfirm(false)}>
+          <div className="animate-scale-in w-full max-w-[340px] rounded-3xl border border-border bg-card p-6 shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10"><span className="text-2xl">🚬</span></div>
             <h3 className="mb-2 text-xl font-bold text-foreground">Edit this journal?</h3>
-            <p className="mb-6 text-sm text-muted-foreground leading-relaxed">
-              This social post is linked directly to your Cigar Journal log data. To modify layout descriptions or photos, let's open its journal sheet!
-            </p>
+            <p className="mb-6 text-sm text-muted-foreground">This post is linked to your Cigar Journal. Let's modify the master log sheet!</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowJournalEditConfirm(false)}
-                className="flex-1 rounded-xl bg-muted py-3.5 text-[15px] font-bold text-foreground transition-transform active:scale-95"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowJournalEditConfirm(false);
-                  navigate(`/edit/${post.cigar_id}`);
-                }}
-                className="flex-1 rounded-xl bg-accent py-3.5 text-[15px] font-bold text-accent-foreground transition-transform active:scale-95 shadow-md shadow-accent/20"
-              >
-                Edit Journal
-              </button>
+              <button onClick={() => setShowJournalEditConfirm(false)} className="w-1/3 rounded-xl bg-muted py-3.5 text-[15px] font-bold text-foreground">Cancel</button>
+              <button onClick={() => { setShowJournalEditConfirm(false); navigate(`/edit/${post.cigar_id}`); }} className="w-2/3 rounded-xl bg-accent py-3.5 text-[15px] font-bold text-accent-foreground shadow-md">Edit Journal</button>
             </div>
           </div>
         </div>
@@ -496,24 +451,18 @@ function SocialPostCard({
   );
 }
 
-// --- COMPONENT FOR INDIVIDUAL COMMENTS ---
-function CommentRow({ comment, currentUser }: { comment: any; currentUser: any }) {
+// --- INSTAGRAM THREADED COMMENT ROW ---
+function CommentRow({ comment, currentUser, onReplyClick }: { comment: any; currentUser: any; onReplyClick: (c: any) => void }) {
   const queryClient = useQueryClient();
-  
   const hasLiked = comment.social_comment_likes?.some((like: any) => like.user_id === currentUser?.id);
   const [optimisticLike, setOptimisticLike] = useState(hasLiked);
   const [likeCount, setLikeCount] = useState(comment.social_comment_likes?.length || 0);
 
   const handleToggleLike = async () => {
-    if (!currentUser) {
-      toast.error("Sign in to like comments");
-      return;
-    }
-
+    if (!currentUser) return;
     const isLiking = !optimisticLike;
     setOptimisticLike(isLiking);
     setLikeCount((prev: number) => (isLiking ? prev + 1 : prev - 1));
-
     try {
       if (isLiking) {
         await supabase.from("social_comment_likes").insert({ comment_id: comment.id, user_id: currentUser.id });
@@ -528,7 +477,7 @@ function CommentRow({ comment, currentUser }: { comment: any; currentUser: any }
   };
 
   return (
-    <div className="flex gap-3 group">
+    <div className="flex gap-3 group items-start py-1">
       <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
         {comment.profiles?.avatar_url ? (
           <img src={comment.profiles.avatar_url} alt="avatar" className="h-full w-full object-cover" />
@@ -538,48 +487,56 @@ function CommentRow({ comment, currentUser }: { comment: any; currentUser: any }
           </div>
         )}
       </div>
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className="text-[13px] font-semibold text-foreground">
-            {comment.profiles?.name || "Anonymous"}
-          </span>
-          <span className="text-[10px] text-muted-foreground">
-            {timeAgo(comment.created_at)}
-          </span>
+          <span className="text-[13px] font-semibold text-foreground">{comment.profiles?.name || "Anonymous"}</span>
+          <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
         </div>
-        <p className="text-[13px] text-foreground mt-0.5 leading-relaxed">
-          {comment.body}
-        </p>
-      </div>
-      <div className="flex flex-col items-center justify-start pt-1 pl-2">
-        <button 
-          onClick={handleToggleLike} 
-          className="transition-transform active:scale-75 p-1"
-        >
-          <Heart 
-            size={14} 
-            className={`transition-colors ${optimisticLike ? "fill-accent text-accent" : "text-muted-foreground hover:text-foreground"}`} 
-          />
-        </button>
-        {likeCount > 0 && (
-          <span className="text-[10px] font-medium text-muted-foreground -mt-0.5">
-            {likeCount}
-          </span>
+        <p className="text-[13px] text-foreground mt-0.5 leading-relaxed break-words">{comment.body}</p>
+        
+        {comment.image_url && (
+          <div className="mt-2 relative max-w-[180px] aspect-square rounded-xl overflow-hidden border border-border bg-black">
+            <img src={comment.image_url} alt="Comment attachment" className="h-full w-full object-contain" />
+          </div>
         )}
+
+        <div className="mt-1 flex items-center gap-3">
+          <button onClick={() => onReplyClick(comment)} className="text-[11px] font-bold text-muted-foreground hover:text-foreground transition-colors">
+            Reply
+          </button>
+        </div>
+      </div>
+      <div className="flex flex-col items-center pt-1 pl-2">
+        <button onClick={handleToggleLike} className="transition-transform active:scale-75 p-1">
+          <Heart size={13} className={`transition-colors ${optimisticLike ? "fill-accent text-accent" : "text-muted-foreground hover:text-foreground"}`} />
+        </button>
+        {likeCount > 0 && <span className="text-[10px] font-medium text-muted-foreground -mt-0.5">{likeCount}</span>}
       </div>
     </div>
   );
 }
 
-
-// --- COMMENT MODAL COMPONENT ---
+// --- PREMIUM NESTED COMMENT MODAL COMPONENT ---
 function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOpen: boolean; onClose: () => void }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [replyTarget, setReplyTarget] = useState<any>(null);
 
-  const { data: comments, isLoading } = useQuery({
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
+  const [croppedImageBlob, setCroppedImageBlob] = useState<Blob | null>(null);
+  const [croppedImageUrlPreview, setCroppedImageUrlPreview] = useState<string | null>(null);
+  
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [isCropping, setIsCropping] = useState(false);
+
+  const { data: rawComments, isLoading } = useQuery({
     queryKey: ["comments", postId],
     enabled: isOpen && !!postId,
     queryFn: async () => {
@@ -592,37 +549,105 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
         `)
         .eq("post_id", postId)
         .order("created_at", { ascending: true });
-
       if (error) throw error;
       return data;
     },
   });
 
+  // Group comments into parent-child hierarchy trees with safe structural fallback mapping
+  const commentTree = useMemo(() => {
+    const safeComments: any[] = Array.isArray(rawComments) ? rawComments : [];
+    const roots = safeComments.filter(c => !c.parent_id);
+    const repliesMap: { [key: string]: any[] } = {};
+
+    safeComments.forEach((curr) => {
+      if (curr.parent_id) {
+        if (!repliesMap[curr.parent_id]) {
+          repliesMap[curr.parent_id] = [];
+        }
+        repliesMap[curr.parent_id].push(curr);
+      }
+    });
+
+    return roots.map(root => ({
+      ...root,
+      replies: repliesMap[root.id] || []
+    }));
+  }, [rawComments]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        setRawImageSrc(reader.result as string);
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const confirmCommentImageCrop = async () => {
+    if (!rawImageSrc || !croppedAreaPixels) return;
+    try {
+      setIsCropping(true);
+      const blob = await getCroppedImg(rawImageSrc, croppedAreaPixels);
+      setCroppedImageBlob(blob!);
+      setCroppedImageUrlPreview(URL.createObjectURL(blob!));
+      setRawImageSrc(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCropping(false);
+    }
+  };
+
+  const clearSelectedImage = () => {
+    setCroppedImageBlob(null);
+    setCroppedImageUrlPreview(null);
+    setRawImageSrc(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      toast.error("Sign in to comment");
-      return;
-    }
-    if (!newComment.trim() || !postId) return;
+    if (!user || !postId) return;
+    if (!newComment.trim() && !croppedImageBlob) return;
 
     setIsSubmitting(true);
     try {
+      let publicImageUrl = null;
+
+      if (croppedImageBlob) {
+        const filename = `${user.id}-comment-${uuidv4()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from("posts")
+          .upload(filename, croppedImageBlob, { contentType: "image/jpeg" });
+        
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from("posts").getPublicUrl(filename);
+        publicImageUrl = data.publicUrl;
+      }
+
+      // Explicit 'as any' bypass since local types aren't synced with new DB columns yet
       const { error } = await supabase
         .from("social_comments")
         .insert({
           post_id: postId,
           user_id: user.id,
           body: newComment.trim(),
-        });
+          image_url: publicImageUrl,
+          parent_id: replyTarget ? replyTarget.id : null
+        } as any);
 
       if (error) throw error;
       
       setNewComment(""); 
-      
+      clearSelectedImage();
+      setReplyTarget(null);
       queryClient.invalidateQueries({ queryKey: ["comments", postId] });
       queryClient.invalidateQueries({ queryKey: ["social-feed"] });
-      
     } catch (error: any) {
       toast.error(error.message || "Failed to post comment");
     } finally {
@@ -633,61 +658,112 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex flex-col justify-end bg-background/80 backdrop-blur-sm sm:items-center sm:justify-center p-0 sm:p-4"
-      onClick={onClose}
-    >
-      <div 
-        className="animate-fade-up flex h-[75vh] w-full flex-col overflow-hidden rounded-t-3xl border-t border-border bg-card shadow-2xl sm:h-[600px] sm:max-w-md sm:rounded-3xl sm:border"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-background/80 backdrop-blur-sm sm:items-center sm:justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="animate-fade-up flex h-[75vh] w-full flex-col overflow-hidden rounded-t-3xl border-t border-border bg-card shadow-2xl sm:h-[600px] sm:max-w-md sm:rounded-3xl sm:border" onClick={(e) => e.stopPropagation()}>
+        
         <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 shrink-0">
           <h3 className="text-base font-bold text-foreground">Comments</h3>
-          <button 
-            onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <X size={18} />
-          </button>
+          <button onClick={onClose} className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X size={18} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-card">
           {isLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-accent" />
-            </div>
-          ) : !comments || comments.length === 0 ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>
+          ) : commentTree.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground opacity-70">
               <MessageCircle size={32} className="mb-2" />
-              <p className="text-sm">No comments yet.</p>
-              <p className="text-xs">Be the first to share your thoughts!</p>
+              <p className="text-sm">No comments yet. Share your thoughts!</p>
             </div>
           ) : (
-            comments.map((comment) => (
-              <CommentRow key={comment.id} comment={comment} currentUser={user} />
+            commentTree.map((rootComment: any) => (
+              <div key={rootComment.id} className="space-y-2">
+                <CommentRow comment={rootComment} currentUser={user} onReplyClick={(c) => setReplyTarget(c)} />
+                
+                {rootComment.replies.map((reply: any) => (
+                  <div key={reply.id} className="pl-6 flex gap-1 items-start border-l border-border/40 ml-4">
+                    <CornerDownRight size={14} className="text-muted-foreground/50 mt-2 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <CommentRow comment={reply} currentUser={user} onReplyClick={(c) => setReplyTarget(c)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ))
           )}
         </div>
 
-        <div className="border-t border-border/50 bg-background/50 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shrink-0">
-          <form onSubmit={handleSubmit} className="relative flex items-center">
-            <input
-              type="text"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment..."
-              className="h-10 w-full rounded-full border border-border bg-card pl-4 pr-12 text-[13px] text-foreground outline-none transition-colors focus:border-accent/50"
-            />
-            <button
-              type="submit"
-              disabled={isSubmitting || !newComment.trim()}
-              className="absolute right-1 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground disabled:opacity-50 transition-transform active:scale-95"
+        <div className="border-t border-border/50 bg-background/90 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shrink-0 space-y-2">
+          {replyTarget && (
+            <div className="flex items-center justify-between bg-muted/60 px-3 py-1.5 rounded-lg text-xs font-medium animate-scale-in">
+              <span className="text-muted-foreground">Replying to <span className="text-foreground font-semibold">@{replyTarget.profiles?.name || "user"}</span></span>
+              <button onClick={() => setReplyTarget(null)} className="text-muted-foreground hover:text-foreground"><X size={14}/></button>
+            </div>
+          )}
+
+          {croppedImageUrlPreview && (
+            <div className="relative inline-block w-16 h-16 rounded-xl overflow-hidden border border-border bg-black animate-scale-in">
+              <img src={croppedImageUrlPreview} alt="attachment" className="w-full h-full object-cover" />
+              <button type="button" onClick={clearSelectedImage} className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-0.5"><X size={10}/></button>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="flex items-center gap-2 relative">
+            <button 
+              type="button" 
+              onClick={() => fileInputRef.current?.click()}
+              className={`p-2 rounded-full border transition-colors shrink-0 ${croppedImageUrlPreview ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-card text-muted-foreground hover:text-foreground'}`}
             >
-              {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} className="-ml-0.5" />}
+              <ImageIcon size={16} />
             </button>
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+
+            <div className="relative flex-1 flex items-center">
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder={replyTarget ? "Write a reply..." : "Add a comment..."}
+                className="h-10 w-full rounded-full border border-border bg-card pl-4 pr-12 text-[13px] text-foreground outline-none transition-colors focus:border-accent/50"
+              />
+              <button
+                type="submit"
+                disabled={isSubmitting || (!newComment.trim() && !croppedImageBlob)}
+                className="absolute right-1 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground disabled:opacity-50"
+              >
+                {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} className="-ml-0.5" />}
+              </button>
+            </div>
           </form>
         </div>
       </div>
+
+      {rawImageSrc && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-3xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+              <h3 className="font-bold text-sm">Crop Comment Photo</h3>
+              <button onClick={clearSelectedImage} className="p-1 rounded-full hover:bg-muted"><X size={16}/></button>
+            </div>
+            <div className="relative w-full h-64 bg-black">
+              <Cropper
+                image={rawImageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onCropComplete={(_, px) => setCroppedAreaPixels(px)}
+                onZoomChange={setZoom}
+              />
+            </div>
+            <div className="p-4 border-t border-border bg-card flex gap-2">
+              <button type="button" onClick={clearSelectedImage} className="w-1/3 py-2.5 rounded-xl bg-muted text-foreground font-bold text-xs flex items-center justify-center gap-1"><ArrowLeft size={14}/> Cancel</button>
+              <button type="button" onClick={confirmCommentImageCrop} disabled={isCropping} className="w-2/3 py-2.5 rounded-xl bg-accent text-accent-foreground font-bold text-xs flex items-center justify-center gap-1 shadow-sm">
+                {isCropping ? <Loader2 size={14} className="animate-spin" /> : <Check size={14}/>} Confirm Crop
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
