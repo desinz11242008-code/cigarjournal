@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Send, X, AlertTriangle } from "lucide-react";
+import { Loader2, Send, X, AlertTriangle, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -10,10 +10,12 @@ import { CigarEntry } from "@/types/cigar";
 export function ShareModal({
   isOpen,
   onClose,
+  onShareSuccess, // Added prop destructuring
   entry,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  onShareSuccess?: () => void; // Added type definition to clear TypeScript compilation error
   entry: CigarEntry;
 }) {
   const { user } = useAuth();
@@ -46,10 +48,15 @@ export function ShareModal({
 
       toast.success("Successfully posted to the Social feed!");
       
-      // Tell React Query to refresh the social feed in the background so it's ready when they look
+      // Refresh the social feed in the cache background
       queryClient.invalidateQueries({ queryKey: ["social-feed"] });
       
-      onClose(); // Close the modal
+      // Fire our navigation callback to kick off the route redirect to the social tab view!
+      if (onShareSuccess) {
+        onShareSuccess();
+      } else {
+        onClose();
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to publish post");
       console.error(error);
@@ -68,7 +75,7 @@ export function ShareModal({
     >
       <div
         className="animate-scale-in w-full max-w-md rounded-3xl border border-border bg-card shadow-2xl"
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
@@ -86,7 +93,7 @@ export function ShareModal({
 
         {/* Body */}
         <div className="p-5">
-          {/* Mini Preview of what they are sharing */}
+          {/* Mini Preview */}
           <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-background/50 p-3">
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
               {entry.photos && entry.photos.length > 0 ? (

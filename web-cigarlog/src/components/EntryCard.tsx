@@ -19,6 +19,13 @@ export function EntryCard({ entry, index }: { entry: CigarEntry; index: number }
     setIsShareModalOpen(true);
   };
 
+  // Callback function triggered when a user successfully shares a post inside ShareModal
+  const handleShareSuccess = () => {
+    setIsShareModalOpen(false);
+    // Smoothly redirect the user directly to the social tab feed to view their shared entry
+    navigate("/social");
+  };
+
   return (
     <>
       <button
@@ -108,10 +115,11 @@ export function EntryCard({ entry, index }: { entry: CigarEntry; index: number }
         </div>
       </button>
 
-      {/* Render the Modal outside the button so it doesn't inherit button styles */}
+      {/* Passed onShareSuccess down so it can trigger the navigate route change hook */}
       <ShareModal 
         isOpen={isShareModalOpen} 
         onClose={() => setIsShareModalOpen(false)} 
+        onShareSuccess={handleShareSuccess}
         entry={entry} 
       />
     </>
