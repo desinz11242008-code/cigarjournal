@@ -1,7 +1,9 @@
-import { MapPin, Send } from "lucide-react";
+import { MapPin, Send, AlertCircle, X, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
+import { supabase } from "@/integrations/supabase/client";
 import { StrengthBolts } from "@/components/Ratings";
 import { CigarEntry } from "@/types/cigar";
 import { ShareModal } from "@/components/ShareModal";
@@ -11,18 +13,45 @@ export function EntryCard({ entry, index }: { entry: CigarEntry; index: number }
   const navigate = useNavigate();
   const date = new Date(entry.timestamp);
   
-  // State to control the Share Modal visibility
+  // State elements to control the operational windows
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isDuplicateWarningOpen, setIsDuplicateWarningOpen] = useState(false);
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
 
-  const handleShareClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevents navigating to the detail page
-    setIsShareModalOpen(true);
+  // Triggers when tapping the share action container button
+  const handleShareClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevents navigating to the details page view
+    
+    try {
+      setIsCheckingDuplicate(true);
+      
+      // Query table schema to locate existing relational maps
+      const { data, error } = await supabase
+        .from("social_posts")
+        .select("id")
+        .eq("cigar_id", entry.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        // If a post matching this cigar_id is already present, block processing and show warning
+        setIsDuplicateWarningOpen(true);
+      } else {
+        // Safe to proceed to the caption editor
+        setIsShareModalOpen(true);
+      }
+    } catch (err) {
+      console.error("Duplicate check failed:", err);
+      // Fallback fallback to preserve availability metrics
+      setIsShareModalOpen(true);
+    } finally {
+      setIsCheckingDuplicate(false);
+    }
   };
 
-  // Callback function triggered when a user successfully shares a post inside ShareModal
   const handleShareSuccess = () => {
     setIsShareModalOpen(false);
-    // Smoothly redirect the user directly to the social tab feed to view their shared entry
     navigate("/social");
   };
 
@@ -105,23 +134,64 @@ export function EntryCard({ entry, index }: { entry: CigarEntry; index: number }
 
               <button
                 onClick={handleShareClick}
-                className="group/share flex shrink-0 items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1.5 text-[11px] font-semibold text-accent transition-all hover:bg-accent hover:text-accent-foreground active:scale-95"
+                disabled={isCheckingDuplicate}
+                className="group/share flex shrink-0 items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1.5 text-[11px] font-semibold text-accent transition-all hover:bg-accent hover:text-accent-foreground active:scale-95 disabled:opacity-50"
               >
                 <Send size={12} className="transition-transform group-hover/share:-translate-y-0.5 group-hover/share:translate-x-0.5" />
-                Share
+                {isCheckingDuplicate ? "Checking..." : "Share"}
               </button>
             </div>
           </div>
         </div>
       </button>
 
-      {/* Passed onShareSuccess down so it can trigger the navigate route change hook */}
+      {/* RENDER ACTIVE STANDARD PUBLISHING MODAL */}
       <ShareModal 
         isOpen={isShareModalOpen} 
         onClose={() => setIsShareModalOpen(false)} 
         onShareSuccess={handleShareSuccess}
         entry={entry} 
       />
+
+      {/* NEW: IN-APP DUPLICATE PREVENTATIVE WARNING POPUP */}
+      {isDuplicateWarningOpen && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+          onClick={() => setIsDuplicateWarningOpen(false)}
+        >
+          <div 
+            className="animate-scale-in w-full max-w-[340px] rounded-3xl border border-border bg-card p-6 shadow-2xl text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 text-accent">
+              <AlertCircle size={28} />
+            </div>
+            
+            <h3 className="mb-2 text-xl font-bold text-foreground">Journal Already Shared</h3>
+            <p className="mb-6 text-sm text-muted-foreground leading-relaxed">
+              You have already shared <span className="font-semibold text-foreground">"{entry.cigarName}"</span> to the community feed timeline. You can review your post context over on the main feed page!
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsDuplicateWarningOpen(false)}
+                className="flex-1 rounded-xl bg-muted py-3.5 text-[15px] font-bold text-foreground transition-transform active:scale-95"
+              >
+                Exit
+              </button>
+              <button
+                onClick={() => {
+                  setIsDuplicateWarningOpen(false);
+                  navigate("/social");
+                }}
+                className="flex-1 rounded-xl bg-accent py-3.5 text-[15px] font-bold text-accent-foreground transition-transform active:scale-95 flex items-center justify-center gap-1.5 shadow-md shadow-accent/20"
+              >
+                Check Post <ExternalLink size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
