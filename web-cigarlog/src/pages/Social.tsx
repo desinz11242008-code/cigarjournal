@@ -492,7 +492,11 @@ function CommentRow({ comment, currentUser, onReplyClick }: { comment: any; curr
           <span className="text-[13px] font-semibold text-foreground">{comment.profiles?.name || "Anonymous"}</span>
           <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
         </div>
-        <p className="text-[13px] text-foreground mt-0.5 leading-relaxed break-words">{comment.body}</p>
+        <p className="text-[13px] text-foreground mt-0.5 leading-relaxed break-words">
+          {/* Highlight tagged users organically if they replied to a sub-reply */}
+          {comment.replying_to && <span className="text-accent mr-1 font-medium">@{comment.replying_to}</span>}
+          {comment.body}
+        </p>
         
         {comment.image_url && (
           <div className="mt-2 relative max-w-[180px] aspect-square rounded-xl overflow-hidden border border-border bg-black">
@@ -554,7 +558,6 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
     },
   });
 
-  // Group comments into parent-child hierarchy trees with safe structural fallback mapping
   const commentTree = useMemo(() => {
     const safeComments: any[] = Array.isArray(rawComments) ? rawComments : [];
     const roots = safeComments.filter(c => !c.parent_id);
@@ -630,7 +633,11 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
         publicImageUrl = data.publicUrl;
       }
 
-      // Explicit 'as any' bypass since local types aren't synced with new DB columns yet
+      // Determine the correct root thread ID. If replying to a sub-comment, use its parent's ID.
+      const threadRootId = replyTarget 
+        ? (replyTarget.parent_id ? replyTarget.parent_id : replyTarget.id) 
+        : null;
+
       const { error } = await supabase
         .from("social_comments")
         .insert({
@@ -638,7 +645,7 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
           user_id: user.id,
           body: newComment.trim(),
           image_url: publicImageUrl,
-          parent_id: replyTarget ? replyTarget.id : null
+          parent_id: threadRootId
         } as any);
 
       if (error) throw error;
