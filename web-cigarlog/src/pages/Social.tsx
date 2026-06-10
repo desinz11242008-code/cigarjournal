@@ -482,11 +482,11 @@ function SocialPostCard({
               <button
                 onClick={() => {
                   setShowJournalEditConfirm(false);
-                  navigate(`/entry/${post.cigar_id}/edit`);
+                  navigate(`/edit/${post.cigar_id}`);
                 }}
                 className="flex-1 rounded-xl bg-accent py-3.5 text-[15px] font-bold text-accent-foreground transition-transform active:scale-95 shadow-md shadow-accent/20"
               >
-                Edit Log Sheet
+                Edit Journal
               </button>
             </div>
           </div>
