@@ -48,10 +48,13 @@ const Journal = () => {
             </h1>
           </div>
 
-          {/* Google Avatar — inline with heading */}
+          {/* User Profile Block — Username + PFP Inline */}
           <div className="relative -mb-1">
             {isLoading ? (
-              <div className="h-10 w-10 rounded-full bg-card animate-pulse" />
+              <div className="flex items-center gap-2.5">
+                <div className="h-4 w-16 bg-card animate-pulse rounded-md" />
+                <div className="h-10 w-10 rounded-full bg-card animate-pulse" />
+              </div>
             ) : (
               <>
                 <button
@@ -62,22 +65,32 @@ const Journal = () => {
                       setShowDropdown((prev) => !prev);
                     }
                   }}
-                  className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-card shadow-lg transition-transform active:scale-95"
+                  className="relative flex items-center gap-2.5 rounded-full p-1 pr-1.5 transition-all duration-200 hover:bg-muted/40 active:scale-[0.98] group"
                   aria-label={user ? "Account menu" : "Sign in"}
                 >
-                  {user?.picture ? (
-                    <img
-                      src={user.picture}
-                      alt={user.name ?? "Profile"}
-                      className="h-full w-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <UserIcon size={18} className="text-muted-foreground" />
+                  {/* Dynamic Username Display */}
+                  {user && (
+                    <span className="text-[14px] font-semibold text-foreground group-hover:text-accent transition-colors max-w-[110px] truncate">
+                      {user.name || "Collector"}
+                    </span>
                   )}
+
+                  {/* Profile Picture Frame */}
+                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-card shadow-lg">
+                    {user?.picture ? (
+                      <img
+                        src={user.picture}
+                        alt={user.name ?? "Profile"}
+                        className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <UserIcon size={18} className="text-muted-foreground" />
+                    )}
+                  </div>
                 </button>
 
-                {/* Dropdown */}
+                {/* Dropdown Menu */}
                 {showDropdown && user && (
                   <>
                     <div
@@ -216,7 +229,6 @@ function EmptyState({
   isLoggedOut?: boolean;
   onSignIn?: () => void;
 }) {
-  // 1. Signed Out View Variant
   if (isLoggedOut) {
     return (
       <div className="animate-scale-in mt-16 flex flex-col items-center text-center">
@@ -237,7 +249,6 @@ function EmptyState({
     );
   }
 
-  // 2. Active Search View Variant
   if (isSearch) {
     return (
       <div className="animate-scale-in mt-16 flex flex-col items-center text-center">
@@ -252,35 +263,19 @@ function EmptyState({
     );
   }
 
-  // 3. Logged In but No Entries View Variant
   return (
     <div className="animate-scale-in mt-16 flex flex-col items-center text-center">
-      
-      {/* IMPROVED: Replaced flat squished SVG with a premium responsive HTML-styled cigar component */}
       <div className="relative mb-6 flex h-20 w-full items-center justify-center scale-110">
-        {/* Soft warmth back-shadow glow */}
         <div className="absolute h-8 w-28 rounded-full bg-accent/10 blur-xl animate-pulse" />
         
-        {/* Cigar Body */}
         <div className="relative flex h-4 w-36 items-center overflow-hidden rounded-r-sm bg-gradient-to-b from-[#59361a] via-[#402511] to-[#2c180a] shadow-[0_4px_12px_rgba(0,0,0,0.5)] border-y border-black/30">
-          
-          {/* Left-side rounded head shadow */}
           <div className="absolute left-0 h-full w-3 rounded-l bg-gradient-to-r from-black/50 to-transparent" />
-          
-          {/* Tobacco wrapper leaves texturing */}
           <div className="absolute inset-0 opacity-20 bg-[linear-gradient(65deg,transparent_45%,#000_50%,transparent_55%)] bg-[length:12px_100%]" />
-
-          {/* Golden Embossed Cigar Band */}
           <div className="absolute left-8 flex h-full w-5 items-center justify-center bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 border-x border-yellow-200/30 shadow-md">
-            {/* Center crimson logo stamp */}
             <div className="h-2.5 w-2.5 rounded-full bg-gradient-to-tr from-red-700 to-red-500 border border-yellow-100/50" />
           </div>
-
-          {/* Ash Foot */}
           <div className="absolute right-0 h-full w-6 bg-gradient-to-r from-transparent via-[#6b6b6b] to-[#a6a6a6]" />
         </div>
-
-        {/* Lit Cherry Core Glow */}
         <div className="absolute right-[calc(50%-73px)] h-3 w-0.5 rounded-r bg-gradient-to-r from-orange-500 to-amber-400 shadow-[0_0_8px_#ea580c] animate-pulse" />
       </div>
 
