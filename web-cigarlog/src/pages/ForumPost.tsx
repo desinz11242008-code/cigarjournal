@@ -88,8 +88,7 @@ const ForumPostPage = () => {
       const { data, error } = await supabase
         .from("forum_comments")
         .select("*, profiles:user_id(id, name, avatar_url)")
-        .eq("post_id", id!)
-        .order("created_at", { ascending: true });
+        .eq("post_id", id!);
 
       if (error) throw error;
       return (data as unknown as CommentWithProfile[]) ?? [];
@@ -266,13 +265,25 @@ const ForumPostPage = () => {
       (v) => v.target_type === targetType && v.target_id === targetId,
     );
 
-  // Build threaded comment tree
+  // Build threaded comment tree & SORT dynamically by highest score
   const threadedComments = useMemo(() => {
-    // FIXED: Now safely fallback to matching empty object structure instead of array
     if (!comments) return { topLevel: [], replies: () => [] };
-    const topLevel = comments.filter((c) => !c.parent_id);
+
+    // Sort by Net Score (upvotes - downvotes) descending. Fallback to older post first on a tie.
+    const sortedComments = [...comments].sort((a, b) => {
+      const scoreA = (a.upvotes || 0) - (a.downvotes || 0);
+      const scoreB = (b.upvotes || 0) - (b.downvotes || 0);
+      
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+
+    const topLevel = sortedComments.filter((c) => !c.parent_id);
     const replies = (parentId: string): CommentWithProfile[] =>
-      comments.filter((c) => c.parent_id === parentId);
+      sortedComments.filter((c) => c.parent_id === parentId);
+      
     return { topLevel, replies };
   }, [comments]);
 
