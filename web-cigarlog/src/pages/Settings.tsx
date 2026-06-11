@@ -56,8 +56,14 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
+  // Active Input States
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  
+  // Snapshots of the original DB values to track "dirty" un-saved state
+  const [initialUsername, setInitialUsername] = useState("");
+  const [initialAvatarUrl, setInitialAvatarUrl] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Cropper State
@@ -66,6 +72,9 @@ const Settings = () => {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [isCropping, setIsCropping] = useState(false);
+
+  // Derived state to check if any edits have been made
+  const hasChanges = username.trim() !== initialUsername || avatarUrl !== initialAvatarUrl;
 
   // Redirect if not logged in
   useEffect(() => {
@@ -87,8 +96,15 @@ const Settings = () => {
 
         if (error) throw error;
         if (data) {
-          setUsername(data.name || "");
-          setAvatarUrl(data.avatar_url || null);
+          const loadedName = data.name || "";
+          const loadedAvatar = data.avatar_url || null;
+          
+          setUsername(loadedName);
+          setAvatarUrl(loadedAvatar);
+          
+          // Lock in the snapshots
+          setInitialUsername(loadedName);
+          setInitialAvatarUrl(loadedAvatar);
         }
       } catch (error) {
         console.error("Error loading profile:", error);
@@ -144,7 +160,7 @@ const Settings = () => {
 
       setAvatarUrl(publicUrl);
       setSelectedImage(null); // Close the cropper modal
-      toast.success("Profile picture updated!");
+      toast.success("Profile picture ready to save!");
     } catch (error: any) {
       toast.error(error.message || "Error uploading image");
     } finally {
@@ -153,7 +169,7 @@ const Settings = () => {
   };
 
   const handleSaveProfile = async () => {
-    if (!user) return;
+    if (!user || !hasChanges) return;
     if (username.trim().length < 3) {
       toast.error("Username must be at least 3 characters");
       return;
@@ -161,16 +177,23 @@ const Settings = () => {
 
     try {
       setSaving(true);
+      const cleanUsername = username.trim();
+      
       const { error } = await supabase
         .from("profiles")
         .update({
-          name: username.trim(),
+          name: cleanUsername,
           avatar_url: avatarUrl,
           updated_at: new Date().toISOString(),
         })
         .eq("id", user.id);
 
       if (error) throw error;
+      
+      // Update our snapshot so the button disables again
+      setInitialUsername(cleanUsername);
+      setInitialAvatarUrl(avatarUrl);
+      
       toast.success("Profile saved successfully!");
     } catch (error: any) {
       toast.error(error.message || "Failed to save profile");
@@ -311,8 +334,12 @@ const Settings = () => {
 
             <button
               onClick={handleSaveProfile}
-              disabled={saving}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 font-semibold text-accent-foreground transition-all active:scale-[0.98] disabled:opacity-50"
+              disabled={saving || !hasChanges}
+              className={`mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-semibold transition-all ${
+                hasChanges 
+                  ? "bg-accent text-accent-foreground active:scale-[0.98] shadow-md shadow-accent/20" 
+                  : "bg-muted/80 text-muted-foreground opacity-60 cursor-not-allowed"
+              }`}
             >
               {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
               {saving ? "Saving..." : "Save Profile"}
