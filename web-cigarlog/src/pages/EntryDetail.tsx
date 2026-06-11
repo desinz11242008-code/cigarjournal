@@ -7,8 +7,9 @@ import {
   Ruler,
   Text as TextIcon,
   Trash2,
+  Loader2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Card, CardHeader, DetailRow } from "@/components/Card";
@@ -20,14 +21,87 @@ import {
 } from "@/components/Ratings";
 import { useCigars } from "@/store/useCigars";
 import { ThirdNotes, thirdHasContent } from "@/types/cigar";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const EntryDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { getById, remove } = useCigars();
+  
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const entry = id ? getById(id) : undefined;
+  // 1. Try to load from personal local store first
+  const localEntry = id ? getById(id) : undefined;
+
+  // 2. Fallback DB states for public community journals
+  const [dbEntry, setDbEntry] = useState<any>(null);
+  const [isLoadingDB, setIsLoadingDB] = useState(!localEntry);
+
+  useEffect(() => {
+    async function fetchPublicEntry() {
+      // If we already have it locally, skip the database call
+      if (localEntry || !id) {
+        setIsLoadingDB(false);
+        return;
+      }
+      try {
+        // OVERRIDE: Using 'as any' bypasses the local strict types so it safely fetches the cigars table
+        const { data, error } = await (supabase as any)
+          .from("cigars")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (error) throw error;
+        
+        const dbData: any = data; // Force data to be flexible to clear property errors
+        
+        // Map Supabase snake_case columns back to local camelCase structure
+        setDbEntry({
+          id: dbData.id,
+          cigarName: dbData.cigar_name || dbData.name,
+          brand: dbData.brand,
+          vitola: dbData.vitola,
+          length: dbData.length,
+          ringGauge: dbData.ring_gauge,
+          wrapper: dbData.wrapper,
+          binder: dbData.binder,
+          filler: dbData.filler,
+          rating: dbData.rating,
+          strength: dbData.strength,
+          humidity: dbData.humidity,
+          timestamp: dbData.timestamp || dbData.created_at,
+          location: dbData.location,
+          pairedWith: dbData.paired_with,
+          durationMinutes: dbData.duration_minutes,
+          photos: dbData.photos || [],
+          firstThird: dbData.first_third || { notes: "", mouthfeel: [], complexity: 0, flavour: 0, harmony: 0 },
+          secondThird: dbData.second_third || { notes: "", mouthfeel: [], complexity: 0, flavour: 0, harmony: 0 },
+          finalThird: dbData.final_third || { notes: "", mouthfeel: [], complexity: 0, flavour: 0, harmony: 0 },
+          user_id: dbData.user_id,
+        });
+      } catch (err) {
+        console.error("Failed to load public entry:", err);
+      } finally {
+        setIsLoadingDB(false);
+      }
+    }
+    fetchPublicEntry();
+  }, [id, localEntry]);
+
+  // Combine results and determine ownership privileges
+  const entry = localEntry || dbEntry;
+  const isOwner = localEntry ? true : (user && dbEntry?.user_id === user.id);
+
+  if (isLoadingDB) {
+    return (
+      <div className="flex min-h-full items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   if (!entry) {
     return (
@@ -66,17 +140,21 @@ const EntryDetail = () => {
             className="flex items-center gap-0.5 rounded-full py-1.5 pl-1 pr-3 text-accent transition active:scale-95"
           >
             <ChevronLeft size={22} />
-            <span className="text-[15px] font-medium">Humidor</span>
+            <span className="text-[15px] font-medium">Back</span>
           </button>
-          <button
-            onClick={() => navigate(`/edit/${entry.id}`)}
-            className="rounded-full px-3 py-1.5 text-[15px] font-semibold text-accent transition active:scale-95"
-          >
-            <span className="flex items-center gap-1.5">
-              <Pencil size={15} />
-              Edit
-            </span>
-          </button>
+          
+          {/* ONLY show Edit button if the user actually owns this journal */}
+          {isOwner && (
+            <button
+              onClick={() => navigate(`/edit/${entry.id}`)}
+              className="rounded-full px-3 py-1.5 text-[15px] font-semibold text-accent transition active:scale-95"
+            >
+              <span className="flex items-center gap-1.5">
+                <Pencil size={15} />
+                Edit
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -100,7 +178,7 @@ const EntryDetail = () => {
                     : "flex snap-x snap-mandatory gap-2"
                 }
               >
-                {entry.photos.map((p, i) => (
+                {entry.photos.map((p: string, i: number) => (
                   <img
                     key={i}
                     src={p}
@@ -148,7 +226,7 @@ const EntryDetail = () => {
             <div className="flex flex-col items-center gap-1">
               <div className="flex items-baseline">
                 <span className="text-[28px] font-bold tabular-nums text-accent">
-                  {entry.rating > 0 ? entry.rating.toFixed(1) : "—"}
+                  {entry.rating > 0 ? Number(entry.rating).toFixed(1) : "—"}
                 </span>
                 <span className="text-base font-medium text-muted-foreground">
                   /10
@@ -250,30 +328,34 @@ const EntryDetail = () => {
           </div>
         </Card>
 
-        {/* Delete */}
-        {confirmDelete ? (
-          <div className="flex gap-3">
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="flex-1 rounded-xl border border-border bg-card py-3.5 text-sm font-medium text-foreground transition active:scale-[0.98]"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleDelete}
-              className="flex-1 rounded-xl bg-destructive py-3.5 text-sm font-semibold text-destructive-foreground transition active:scale-[0.98]"
-            >
-              Delete forever
-            </button>
+        {/* Delete — ONLY visible to the owner of the journal */}
+        {isOwner && (
+          <div className="pt-2">
+            {confirmDelete ? (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 rounded-xl border border-border bg-card py-3.5 text-sm font-medium text-foreground transition active:scale-[0.98]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="flex-1 rounded-xl bg-destructive py-3.5 text-sm font-semibold text-destructive-foreground transition active:scale-[0.98]"
+                >
+                  Delete forever
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-destructive/10 py-3.5 text-sm font-medium text-destructive transition active:scale-[0.98]"
+              >
+                <Trash2 size={16} />
+                Delete Entry
+              </button>
+            )}
           </div>
-        ) : (
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-destructive/10 py-3.5 text-sm font-medium text-destructive transition active:scale-[0.98]"
-          >
-            <Trash2 size={16} />
-            Delete Entry
-          </button>
         )}
       </div>
     </div>
