@@ -35,6 +35,11 @@ const Journal = () => {
     return entries.filter((e) => new Date(e.timestamp) >= monthStart).length;
   }, [entries]);
 
+  // Safely extract Google Profile details by bypassing strict TypeScript interface limits
+  const safeUser = user as any;
+  const displayName = safeUser?.user_metadata?.full_name || safeUser?.user_metadata?.name || safeUser?.name || "Collector";
+  const displayPicture = safeUser?.user_metadata?.avatar_url || safeUser?.user_metadata?.picture || safeUser?.avatar_url || safeUser?.picture;
+
   return (
     <div className="relative min-h-full">
       <div className="ember-glow pointer-events-none absolute inset-x-0 top-0 h-64" />
@@ -71,16 +76,16 @@ const Journal = () => {
                   {/* Dynamic Username Display */}
                   {user && (
                     <span className="text-[14px] font-semibold text-foreground group-hover:text-accent transition-colors max-w-[110px] truncate">
-                      {user.name || "Collector"}
+                      {displayName}
                     </span>
                   )}
 
                   {/* Profile Picture Frame */}
                   <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-card shadow-lg">
-                    {user?.picture ? (
+                    {displayPicture ? (
                       <img
-                        src={user.picture}
-                        alt={user.name ?? "Profile"}
+                        src={displayPicture}
+                        alt={displayName}
                         className="h-full w-full object-cover"
                         referrerPolicy="no-referrer"
                       />
@@ -100,7 +105,7 @@ const Journal = () => {
                     <div className="animate-scale-in absolute right-0 top-12 z-20 w-48 rounded-xl border border-border bg-popover p-1.5 shadow-xl">
                       <div className="border-b border-border px-3 py-2.5">
                         <p className="text-sm font-medium text-foreground truncate">
-                          {user.name ?? "Signed in"}
+                          {displayName}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
                           {user.email}
