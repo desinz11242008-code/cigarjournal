@@ -1,12 +1,13 @@
 import { Plus, Search, X, LogOut, User as UserIcon } from "lucide-react";
 import { useContext, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 
 import { EntryCard } from "@/components/EntryCard";
 import { SignInContext } from "@/components/TabLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { useCigars } from "@/store/useCigars";
+import { supabase } from "@/integrations/supabase/client";
 
 const Journal = () => {
   const { entries } = useCigars();
@@ -16,6 +17,22 @@ const Journal = () => {
   const { user, isLoading, signOut } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const queryClient = useQueryClient();
+
+  // NEW: Fetch the custom user profile from the database (matches Settings tab)
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("name, avatar_url")
+        .eq("id", user?.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -35,10 +52,10 @@ const Journal = () => {
     return entries.filter((e) => new Date(e.timestamp) >= monthStart).length;
   }, [entries]);
 
-  // Safely extract Google Profile details by bypassing strict TypeScript interface limits
+  // Safely extract details, prioritizing the App Profile over the Google Defaults!
   const safeUser = user as any;
-  const displayName = safeUser?.user_metadata?.full_name || safeUser?.user_metadata?.name || safeUser?.name || "Collector";
-  const displayPicture = safeUser?.user_metadata?.avatar_url || safeUser?.user_metadata?.picture || safeUser?.avatar_url || safeUser?.picture;
+  const displayName = profile?.name || safeUser?.user_metadata?.full_name || safeUser?.user_metadata?.name || safeUser?.name || "Collector";
+  const displayPicture = profile?.avatar_url || safeUser?.user_metadata?.avatar_url || safeUser?.user_metadata?.picture || safeUser?.avatar_url || safeUser?.picture;
 
   return (
     <div className="relative min-h-full">
