@@ -12,6 +12,7 @@ import { StrengthBolts } from "@/components/Ratings";
 import { CreatePostModal } from "@/components/CreatePostModal";
 import { EditPostModal } from "@/components/EditPostModal";
 import { getCroppedImg } from "@/utils/cropUtils";
+import { useCigars } from "@/store/useCigars";
 
 type SocialPost = {
   id: string;
@@ -181,6 +182,7 @@ function SocialPostCard({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { getById } = useCigars();
   
   const hasLiked = post.social_likes.some((like) => like.user_id === currentUser?.id);
   const [optimisticLike, setOptimisticLike] = useState(hasLiked);
@@ -191,6 +193,10 @@ function SocialPostCard({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isAuthor = currentUser?.id === post.user_id;
+
+  // NEW: Grab local entry to immediately reflect local humidor edits for the author
+  const localCigar = post.cigar_id ? getById(post.cigar_id) : null;
+  const displayCigar = isAuthor && localCigar ? { ...post.cigars, ...localCigar } : post.cigars;
 
   const handleToggleLike = async () => {
     if (!currentUser) {
@@ -239,7 +245,7 @@ function SocialPostCard({
     }
   };
 
-  const cigarDateStr = post.cigars?.timestamp || post.cigars?.created_at;
+  const cigarDateStr = displayCigar?.timestamp || displayCigar?.created_at;
   const formattedCigarDate = cigarDateStr ? new Date(cigarDateStr).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -310,18 +316,18 @@ function SocialPostCard({
           </div>
         )}
 
-        {post.cigars && (
+        {displayCigar && (
           <div className={`px-4 ${post.image_url ? "mt-4" : ""}`}>
             <div 
-              onClick={() => navigate(`/entry/${post.cigars.id}`)}
+              onClick={() => navigate(`/entry/${displayCigar.id}`)}
               className="group w-full cursor-pointer overflow-hidden rounded-2xl border border-border bg-background/50 text-left transition-all duration-200 active:scale-[0.985] hover:border-accent/40"
             >
               <div className="flex h-[130px]">
                 <div className="relative h-full w-[110px] shrink-0 overflow-hidden bg-[hsl(var(--field))]">
-                  {post.cigars.photos && post.cigars.photos.length > 0 ? (
+                  {displayCigar.photos && displayCigar.photos.length > 0 ? (
                     <img
-                      src={post.cigars.photos[0]}
-                      alt={post.cigars.cigar_name || "Cigar"}
+                      src={displayCigar.photos[0]}
+                      alt={displayCigar.cigar_name || displayCigar.cigarName || displayCigar.name || "Cigar"}
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
@@ -337,7 +343,7 @@ function SocialPostCard({
                   <div className="min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="truncate text-[15px] font-semibold text-foreground">
-                        {post.cigars.cigar_name || post.cigars.cigarName || post.cigars.name || "Untitled Cigar"}
+                        {displayCigar.cigar_name || displayCigar.cigarName || displayCigar.name || "Untitled Cigar"}
                       </h3>
                       <span className="shrink-0 text-[11px] font-medium text-muted-foreground mt-0.5">
                         {formattedCigarDate}
@@ -346,20 +352,20 @@ function SocialPostCard({
 
                     <div className="mt-0.5 flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        {post.cigars.brand && (
-                          <p className="truncate text-[13px] text-accent/90">{post.cigars.brand}</p>
+                        {displayCigar.brand && (
+                          <p className="truncate text-[13px] text-accent/90">{displayCigar.brand}</p>
                         )}
-                        {post.cigars.vitola && (
+                        {displayCigar.vitola && (
                           <p className="truncate text-xs text-muted-foreground mt-0.5">
-                            {post.cigars.vitola}
+                            {displayCigar.vitola}
                           </p>
                         )}
                       </div>
 
-                      {post.cigars.rating > 0 && (
+                      {displayCigar.rating > 0 && (
                         <div className="flex shrink-0 items-baseline gap-0.5 rounded-full bg-accent/10 px-2 py-0.5 mt-0.5 border border-accent/20">
                           <span className="text-sm font-bold text-accent">
-                            {Number(post.cigars.rating).toFixed(1)}
+                            {Number(displayCigar.rating).toFixed(1)}
                           </span>
                           <span className="text-[10px] font-medium text-accent/70">
                             /10
@@ -371,11 +377,11 @@ function SocialPostCard({
 
                   <div className="flex items-end justify-between gap-2 mt-auto pt-2">
                     <div className="flex flex-col gap-1.5">
-                      <StrengthBolts strength={post.cigars.strength} size={12} />
-                      {post.cigars.location && (
+                      <StrengthBolts strength={displayCigar.strength} size={12} />
+                      {displayCigar.location && (
                         <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                           <MapPin size={11} className="shrink-0" />
-                          <span className="max-w-[90px] truncate">{post.cigars.location}</span>
+                          <span className="max-w-[90px] truncate">{displayCigar.location}</span>
                         </span>
                       )}
                     </div>
@@ -456,7 +462,7 @@ function CommentRow({
   comment, 
   currentUser, 
   onReplyClick, 
-  onImageClick // NEW PROP
+  onImageClick 
 }: { 
   comment: any; 
   currentUser: any; 
@@ -507,7 +513,6 @@ function CommentRow({
           {comment.body}
         </p>
         
-        {/* Make the picture clickable */}
         {comment.image_url && (
           <div 
             onClick={() => onImageClick(comment.image_url)}
@@ -553,7 +558,6 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [isCropping, setIsCropping] = useState(false);
 
-  // State to handle fullscreen expanded image popups
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   const { data: rawComments, isLoading } = useQuery({
@@ -770,7 +774,6 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
           </div>
         </div>
 
-        {/* UPDATED: Large, Premium Comment Cropper Overlay */}
         {rawImageSrc && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
             <div className="animate-scale-in flex h-[75vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl sm:h-[600px]">
@@ -800,7 +803,6 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
         )}
       </div>
 
-      {/* Fullscreen Lightbox for Expanded Comments Images */}
       {expandedImage && (
         <div 
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-md"

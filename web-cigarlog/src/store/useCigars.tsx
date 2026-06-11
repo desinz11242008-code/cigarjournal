@@ -1,5 +1,6 @@
 import createContextHook from "@nkzw/create-context-hook";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CigarEntry, emptyThird } from "@/types/cigar";
 
@@ -8,7 +9,7 @@ const mapDbToEntry = (row: any): CigarEntry => {
   return {
     id: row.id,
     timestamp: row.timestamp || row.created_at || new Date().toISOString(),
-    user_id: row.user_id, // 👈 Added this line to retain user ownership in local state
+    user_id: row.user_id, 
     cigarName: row.name || row.cigar_name || "",
     brand: row.brand || "",
     vitola: row.vitola || "",
@@ -58,6 +59,7 @@ const mapEntryToDb = (entry: CigarEntry, userId: string) => {
 
 // ─── STATE PROVIDER ──────────────────────────────────────────────────────
 export const [CigarProvider, useCigars] = createContextHook(() => {
+  const queryClient = useQueryClient(); // <-- Added query client to control the social feed cache
   const [entries, setEntries] = useState<CigarEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -123,10 +125,13 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
       const { error } = await (supabase as any).from("cigars").upsert(dbRow);
       
       if (error) throw error;
+
+      // NEW: Force the Social Feed to refetch the newest database changes instantly
+      queryClient.invalidateQueries({ queryKey: ["social-feed"] });
     } catch (err) {
       console.error("Failed to save cigar entry to database:", err);
     }
-  }, []);
+  }, [queryClient]);
 
   const remove = useCallback(async (id: string) => {
     try {
@@ -142,10 +147,13 @@ export const [CigarProvider, useCigars] = createContextHook(() => {
         .eq("user_id", user.id); // Guarded delete target
       
       if (error) throw error;
+
+      // NEW: Force the Social Feed to drop deleted journals instantly
+      queryClient.invalidateQueries({ queryKey: ["social-feed"] });
     } catch (err) {
       console.error("Failed to delete cigar entry from database:", err);
     }
-  }, []);
+  }, [queryClient]);
 
   const getById = useCallback(
     (id: string): CigarEntry | undefined => entries.find((e) => e.id === id),
