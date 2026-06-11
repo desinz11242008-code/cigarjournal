@@ -452,7 +452,17 @@ function SocialPostCard({
 }
 
 // --- INSTAGRAM THREADED COMMENT ROW ---
-function CommentRow({ comment, currentUser, onReplyClick }: { comment: any; currentUser: any; onReplyClick: (c: any) => void }) {
+function CommentRow({ 
+  comment, 
+  currentUser, 
+  onReplyClick, 
+  onImageClick // NEW PROP
+}: { 
+  comment: any; 
+  currentUser: any; 
+  onReplyClick: (c: any) => void;
+  onImageClick: (url: string) => void; 
+}) {
   const queryClient = useQueryClient();
   const hasLiked = comment.social_comment_likes?.some((like: any) => like.user_id === currentUser?.id);
   const [optimisticLike, setOptimisticLike] = useState(hasLiked);
@@ -493,13 +503,16 @@ function CommentRow({ comment, currentUser, onReplyClick }: { comment: any; curr
           <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
         </div>
         <p className="text-[13px] text-foreground mt-0.5 leading-relaxed break-words">
-          {/* Highlight tagged users organically if they replied to a sub-reply */}
           {comment.replying_to && <span className="text-accent mr-1 font-medium">@{comment.replying_to}</span>}
           {comment.body}
         </p>
         
+        {/* Make the picture clickable */}
         {comment.image_url && (
-          <div className="mt-2 relative max-w-[180px] aspect-square rounded-xl overflow-hidden border border-border bg-black">
+          <div 
+            onClick={() => onImageClick(comment.image_url)}
+            className="mt-2 relative max-w-[180px] aspect-square rounded-xl overflow-hidden border border-border bg-black cursor-pointer transition-transform active:scale-[0.98]"
+          >
             <img src={comment.image_url} alt="Comment attachment" className="h-full w-full object-contain" />
           </div>
         )}
@@ -539,6 +552,9 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [isCropping, setIsCropping] = useState(false);
+
+  // State to handle fullscreen expanded image popups
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   const { data: rawComments, isLoading } = useQuery({
     queryKey: ["comments", postId],
@@ -633,7 +649,6 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
         publicImageUrl = data.publicUrl;
       }
 
-      // Determine the correct root thread ID. If replying to a sub-comment, use its parent's ID.
       const threadRootId = replyTarget 
         ? (replyTarget.parent_id ? replyTarget.parent_id : replyTarget.id) 
         : null;
@@ -665,113 +680,146 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-background/80 backdrop-blur-sm sm:items-center sm:justify-center p-0 sm:p-4" onClick={onClose}>
-      <div className="animate-fade-up flex h-[75vh] w-full flex-col overflow-hidden rounded-t-3xl border-t border-border bg-card shadow-2xl sm:h-[600px] sm:max-w-md sm:rounded-3xl sm:border" onClick={(e) => e.stopPropagation()}>
-        
-        <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 shrink-0">
-          <h3 className="text-base font-bold text-foreground">Comments</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X size={18} /></button>
-        </div>
+    <>
+      <div className="fixed inset-0 z-50 flex flex-col justify-end bg-background/80 backdrop-blur-sm sm:items-center sm:justify-center p-0 sm:p-4" onClick={onClose}>
+        <div className="animate-fade-up flex h-[75vh] w-full flex-col overflow-hidden rounded-t-3xl border-t border-border bg-card shadow-2xl sm:h-[600px] sm:max-w-md sm:rounded-3xl sm:border" onClick={(e) => e.stopPropagation()}>
+          
+          <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 shrink-0">
+            <h3 className="text-base font-bold text-foreground">Comments</h3>
+            <button onClick={onClose} className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X size={18} /></button>
+          </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-card">
-          {isLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>
-          ) : commentTree.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground opacity-70">
-              <MessageCircle size={32} className="mb-2" />
-              <p className="text-sm">No comments yet. Share your thoughts!</p>
-            </div>
-          ) : (
-            commentTree.map((rootComment: any) => (
-              <div key={rootComment.id} className="space-y-2">
-                <CommentRow comment={rootComment} currentUser={user} onReplyClick={(c) => setReplyTarget(c)} />
-                
-                {rootComment.replies.map((reply: any) => (
-                  <div key={reply.id} className="pl-6 flex gap-1 items-start border-l border-border/40 ml-4">
-                    <CornerDownRight size={14} className="text-muted-foreground/50 mt-2 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <CommentRow comment={reply} currentUser={user} onReplyClick={(c) => setReplyTarget(c)} />
-                    </div>
-                  </div>
-                ))}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-card">
+            {isLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>
+            ) : commentTree.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground opacity-70">
+                <MessageCircle size={32} className="mb-2" />
+                <p className="text-sm">No comments yet. Share your thoughts!</p>
               </div>
-            ))
-          )}
-        </div>
+            ) : (
+              commentTree.map((rootComment: any) => (
+                <div key={rootComment.id} className="space-y-2">
+                  <CommentRow 
+                    comment={rootComment} 
+                    currentUser={user} 
+                    onReplyClick={(c) => setReplyTarget(c)} 
+                    onImageClick={setExpandedImage} 
+                  />
+                  
+                  {rootComment.replies.map((reply: any) => (
+                    <div key={reply.id} className="pl-6 flex gap-1 items-start border-l border-border/40 ml-4">
+                      <CornerDownRight size={14} className="text-muted-foreground/50 mt-2 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <CommentRow 
+                          comment={reply} 
+                          currentUser={user} 
+                          onReplyClick={(c) => setReplyTarget(c)} 
+                          onImageClick={setExpandedImage} 
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
 
-        <div className="border-t border-border/50 bg-background/90 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shrink-0 space-y-2">
-          {replyTarget && (
-            <div className="flex items-center justify-between bg-muted/60 px-3 py-1.5 rounded-lg text-xs font-medium animate-scale-in">
-              <span className="text-muted-foreground">Replying to <span className="text-foreground font-semibold">@{replyTarget.profiles?.name || "user"}</span></span>
-              <button onClick={() => setReplyTarget(null)} className="text-muted-foreground hover:text-foreground"><X size={14}/></button>
-            </div>
-          )}
+          <div className="border-t border-border/50 bg-background/90 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shrink-0 space-y-2">
+            {replyTarget && (
+              <div className="flex items-center justify-between bg-muted/60 px-3 py-1.5 rounded-lg text-xs font-medium animate-scale-in">
+                <span className="text-muted-foreground">Replying to <span className="text-foreground font-semibold">@{replyTarget.profiles?.name || "user"}</span></span>
+                <button onClick={() => setReplyTarget(null)} className="text-muted-foreground hover:text-foreground"><X size={14}/></button>
+              </div>
+            )}
 
-          {croppedImageUrlPreview && (
-            <div className="relative inline-block w-16 h-16 rounded-xl overflow-hidden border border-border bg-black animate-scale-in">
-              <img src={croppedImageUrlPreview} alt="attachment" className="w-full h-full object-cover" />
-              <button type="button" onClick={clearSelectedImage} className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-0.5"><X size={10}/></button>
-            </div>
-          )}
+            {croppedImageUrlPreview && (
+              <div className="relative inline-block w-16 h-16 rounded-xl overflow-hidden border border-border bg-black animate-scale-in">
+                <img src={croppedImageUrlPreview} alt="attachment" className="w-full h-full object-cover" />
+                <button type="button" onClick={clearSelectedImage} className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-0.5"><X size={10}/></button>
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="flex items-center gap-2 relative">
-            <button 
-              type="button" 
-              onClick={() => fileInputRef.current?.click()}
-              className={`p-2 rounded-full border transition-colors shrink-0 ${croppedImageUrlPreview ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-card text-muted-foreground hover:text-foreground'}`}
-            >
-              <ImageIcon size={16} />
-            </button>
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-
-            <div className="relative flex-1 flex items-center">
-              <input
-                type="text"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder={replyTarget ? "Write a reply..." : "Add a comment..."}
-                className="h-10 w-full rounded-full border border-border bg-card pl-4 pr-12 text-[13px] text-foreground outline-none transition-colors focus:border-accent/50"
-              />
-              <button
-                type="submit"
-                disabled={isSubmitting || (!newComment.trim() && !croppedImageBlob)}
-                className="absolute right-1 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground disabled:opacity-50"
+            <form onSubmit={handleSubmit} className="flex items-center gap-2 relative">
+              <button 
+                type="button" 
+                onClick={() => fileInputRef.current?.click()}
+                className={`p-2 rounded-full border transition-colors shrink-0 ${croppedImageUrlPreview ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-card text-muted-foreground hover:text-foreground'}`}
               >
-                {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} className="-ml-0.5" />}
+                <ImageIcon size={16} />
               </button>
-            </div>
-          </form>
-        </div>
-      </div>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
 
-      {rawImageSrc && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
-          <div className="w-full max-w-sm rounded-3xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-              <h3 className="font-bold text-sm">Crop Comment Photo</h3>
-              <button onClick={clearSelectedImage} className="p-1 rounded-full hover:bg-muted"><X size={16}/></button>
-            </div>
-            <div className="relative w-full h-64 bg-black">
-              <Cropper
-                image={rawImageSrc}
-                crop={crop}
-                zoom={zoom}
-                aspect={1}
-                onCropChange={setCrop}
-                onCropComplete={(_, px) => setCroppedAreaPixels(px)}
-                onZoomChange={setZoom}
-              />
-            </div>
-            <div className="p-4 border-t border-border bg-card flex gap-2">
-              <button type="button" onClick={clearSelectedImage} className="w-1/3 py-2.5 rounded-xl bg-muted text-foreground font-bold text-xs flex items-center justify-center gap-1"><ArrowLeft size={14}/> Cancel</button>
-              <button type="button" onClick={confirmCommentImageCrop} disabled={isCropping} className="w-2/3 py-2.5 rounded-xl bg-accent text-accent-foreground font-bold text-xs flex items-center justify-center gap-1 shadow-sm">
-                {isCropping ? <Loader2 size={14} className="animate-spin" /> : <Check size={14}/>} Confirm Crop
-              </button>
-            </div>
+              <div className="relative flex-1 flex items-center">
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder={replyTarget ? "Write a reply..." : "Add a comment..."}
+                  className="h-10 w-full rounded-full border border-border bg-card pl-4 pr-12 text-[13px] text-foreground outline-none transition-colors focus:border-accent/50"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmitting || (!newComment.trim() && !croppedImageBlob)}
+                  className="absolute right-1 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} className="-ml-0.5" />}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
+
+        {rawImageSrc && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full max-w-sm rounded-3xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+                <h3 className="font-bold text-sm">Crop Comment Photo</h3>
+                <button onClick={clearSelectedImage} className="p-1 rounded-full hover:bg-muted"><X size={16}/></button>
+              </div>
+              <div className="relative w-full h-64 bg-black">
+                <Cropper
+                  image={rawImageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  onCropChange={setCrop}
+                  onCropComplete={(_, px) => setCroppedAreaPixels(px)}
+                  onZoomChange={setZoom}
+                />
+              </div>
+              <div className="p-4 border-t border-border bg-card flex gap-2">
+                <button type="button" onClick={clearSelectedImage} className="w-1/3 py-2.5 rounded-xl bg-muted text-foreground font-bold text-xs flex items-center justify-center gap-1"><ArrowLeft size={14}/> Cancel</button>
+                <button type="button" onClick={confirmCommentImageCrop} disabled={isCropping} className="w-2/3 py-2.5 rounded-xl bg-accent text-accent-foreground font-bold text-xs flex items-center justify-center gap-1 shadow-sm">
+                  {isCropping ? <Loader2 size={14} className="animate-spin" /> : <Check size={14}/>} Confirm Crop
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* NEW: Fullscreen Lightbox for Expanded Comments Images */}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-md"
+          onClick={() => setExpandedImage(null)}
+        >
+          <button
+            onClick={() => setExpandedImage(null)}
+            className="absolute top-4 right-4 md:top-6 md:right-6 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors"
+          >
+            <X size={24} />
+          </button>
+          <img
+            src={expandedImage}
+            alt="Expanded view"
+            className="max-h-full max-w-full object-contain animate-scale-in rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()} // Prevent closing if the user clicks inside the image directly
+          />
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
