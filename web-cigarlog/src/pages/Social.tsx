@@ -770,14 +770,15 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
           </div>
         </div>
 
+        {/* UPDATED: Large, Premium Comment Cropper Overlay */}
         {rawImageSrc && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="w-full max-w-sm rounded-3xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-                <h3 className="font-bold text-sm">Crop Comment Photo</h3>
-                <button onClick={clearSelectedImage} className="p-1 rounded-full hover:bg-muted"><X size={16}/></button>
+            <div className="animate-scale-in flex h-[75vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl sm:h-[600px]">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+                <h3 className="font-bold text-base">Crop Comment Photo</h3>
+                <button onClick={clearSelectedImage} className="p-1.5 rounded-full hover:bg-muted transition-colors"><X size={18}/></button>
               </div>
-              <div className="relative w-full h-64 bg-black">
+              <div className="relative w-full flex-1 bg-black">
                 <Cropper
                   image={rawImageSrc}
                   crop={crop}
@@ -788,10 +789,10 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
                   onZoomChange={setZoom}
                 />
               </div>
-              <div className="p-4 border-t border-border bg-card flex gap-2">
-                <button type="button" onClick={clearSelectedImage} className="w-1/3 py-2.5 rounded-xl bg-muted text-foreground font-bold text-xs flex items-center justify-center gap-1"><ArrowLeft size={14}/> Cancel</button>
-                <button type="button" onClick={confirmCommentImageCrop} disabled={isCropping} className="w-2/3 py-2.5 rounded-xl bg-accent text-accent-foreground font-bold text-xs flex items-center justify-center gap-1 shadow-sm">
-                  {isCropping ? <Loader2 size={14} className="animate-spin" /> : <Check size={14}/>} Confirm Crop
+              <div className="p-4 border-t border-border bg-card flex gap-3 shrink-0">
+                <button type="button" onClick={clearSelectedImage} className="w-1/3 py-3.5 rounded-xl bg-muted text-foreground font-bold text-[15px] flex items-center justify-center gap-1.5 transition-transform active:scale-95"><ArrowLeft size={16}/> Cancel</button>
+                <button type="button" onClick={confirmCommentImageCrop} disabled={isCropping} className="w-2/3 py-3.5 rounded-xl bg-accent text-accent-foreground font-bold text-[15px] flex items-center justify-center gap-1.5 shadow-md shadow-accent/20 transition-transform active:scale-95">
+                  {isCropping ? <Loader2 size={16} className="animate-spin" /> : <Check size={16}/>} Confirm Crop
                 </button>
               </div>
             </div>
@@ -799,7 +800,7 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
         )}
       </div>
 
-      {/* NEW: Fullscreen Lightbox for Expanded Comments Images */}
+      {/* Fullscreen Lightbox for Expanded Comments Images */}
       {expandedImage && (
         <div 
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-md"
@@ -815,7 +816,7 @@ function CommentModal({ postId, isOpen, onClose }: { postId: string | null; isOp
             src={expandedImage}
             alt="Expanded view"
             className="max-h-full max-w-full object-contain animate-scale-in rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()} // Prevent closing if the user clicks inside the image directly
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}
